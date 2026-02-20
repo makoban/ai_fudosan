@@ -1,5 +1,5 @@
 // ========================================
-// AI不動産市場レポート v1.3
+// AI不動産市場レポート v1.4
 // エリア入力 → 政府統計 + AI分析 → プレビュー/課金
 // ========================================
 
@@ -137,26 +137,30 @@ function initAutocomplete() {
 }
 
 // ---- Supabase Auth ----
+var _pendingCheckout = false;
+
 function initSupabase() {
   if (typeof supabase !== 'undefined' && supabase.createClient) {
     supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    // 認証状態監視
+    // onAuthStateChangeのみで管理（INITIAL_SESSIONイベントで初期セッションも通知される）
     supabaseClient.auth.onAuthStateChange(function(event, session) {
       currentUser = session ? session.user : null;
       updateAuthUI();
-    });
-    // 初期セッション取得
-    supabaseClient.auth.getSession().then(function(result) {
-      currentUser = result.data.session ? result.data.session.user : null;
-      updateAuthUI();
-    });
-  } else {
-    // SDKがまだ読み込まれていない場合はDOMContentLoaded後に再試行
-    document.addEventListener('DOMContentLoaded', function() {
-      if (typeof supabase !== 'undefined' && supabase.createClient) {
-        initSupabase();
+      // ログイン完了後にGoogleリダイレクトやログインモーダルを処理
+      if (event === 'SIGNED_IN') {
+        var modal = document.getElementById('login-modal');
+        if (modal && modal.classList.contains('active')) {
+          modal.classList.remove('active');
+        }
+        // ログイン後に購入フローを自動再開
+        if (_pendingCheckout && currentArea) {
+          _pendingCheckout = false;
+          _doCheckout();
+        }
       }
     });
+  } else {
+    console.warn('[Auth] Supabase SDK not loaded');
   }
 }
 
@@ -249,9 +253,8 @@ async function loginWithGoogle() {
 
 async function logoutUser() {
   if (!supabaseClient) return;
+  // signOut()がonAuthStateChangeをトリガーし、currentUser=null + updateAuthUI()が自動実行される
   await supabaseClient.auth.signOut();
-  currentUser = null;
-  updateAuthUI();
 }
 
 // ---- Gemini API via Worker Proxy ----
@@ -291,6 +294,8 @@ async function callGemini(prompt) {
     }
     return data.text || '';
   }
+  // リトライ上限に達した場合
+  throw new Error('AI APIが混雑しています。しばらくしてから再度お試しください。');
 }
 
 // ---- e-Stat API via Worker Proxy ----
@@ -974,34 +979,41 @@ function renderResults(data, purchased) {
 }
 
 // ---- Stripe Checkout ----
-async function startCheckout() {
+function startCheckout() {
   if (!currentArea) return;
 
-  // ログインチェック
+  // 未ログインなら先にログインを促す（ログイン後に自動で _doCheckout を実行）
   if (!currentUser) {
+    _pendingCheckout = true;
     showLoginModal();
     return;
   }
+
+  _doCheckout();
+}
+
+async function _doCheckout() {
+  if (!currentArea || !currentUser) return;
 
   var btn = document.getElementById('purchase-btn');
   btn.disabled = true;
   btn.textContent = '処理中...';
 
   try {
-    // セッションからJWTを取得
+    // セッションからJWTを取得（Worker側でuser_idを検証する）
     var session = await supabaseClient.auth.getSession();
     var token = session.data.session ? session.data.session.access_token : null;
+    if (!token) throw new Error('認証トークンが取得できません。再ログインしてください。');
 
     var res = await fetch(WORKER_BASE + '/api/checkout', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': token ? ('Bearer ' + token) : ''
+        'Authorization': 'Bearer ' + token
       },
       body: JSON.stringify({
         area: currentArea.fullLabel,
         area_code: currentArea.code || '',
-        user_id: currentUser.id,
         success_url: window.location.origin + window.location.pathname + '?session_id={CHECKOUT_SESSION_ID}',
         cancel_url: window.location.origin + window.location.pathname
       })
@@ -1023,7 +1035,14 @@ async function startCheckout() {
 
 async function verifyPurchase(sessionId) {
   try {
-    var res = await fetch(WORKER_BASE + '/api/purchases?session_id=' + encodeURIComponent(sessionId));
+    // JWTを取得してAuthorizationヘッダーに付与
+    var headers = {};
+    if (supabaseClient && currentUser) {
+      var session = await supabaseClient.auth.getSession();
+      var token = session.data.session ? session.data.session.access_token : null;
+      if (token) headers['Authorization'] = 'Bearer ' + token;
+    }
+    var res = await fetch(WORKER_BASE + '/api/purchases?session_id=' + encodeURIComponent(sessionId), { headers: headers });
     var data = await res.json();
     if (data.purchased) {
       // 購入情報をローカルに保存

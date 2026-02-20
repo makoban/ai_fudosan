@@ -287,6 +287,33 @@ async function supabaseRequest(path, method, body, env, options = {}) {
   return { ok: response.ok, status: response.status, data };
 }
 
+/**
+ * Authorization ヘッダーの JWT から user_id を取得する。
+ * Supabase Auth の /auth/v1/user エンドポイントでトークンを検証。
+ * @param {Request} request
+ * @param {object} env
+ * @returns {Promise<{user_id: string|null, email: string|null}>}
+ */
+async function getUserFromJWT(request, env) {
+  const authHeader = request.headers.get("Authorization") || "";
+  if (!authHeader.startsWith("Bearer ")) return { user_id: null, email: null };
+
+  const token = authHeader.slice(7);
+  try {
+    const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "apikey": env.SUPABASE_SERVICE_KEY,
+      },
+    });
+    if (!res.ok) return { user_id: null, email: null };
+    const user = await res.json();
+    return { user_id: user.id || null, email: user.email || null };
+  } catch {
+    return { user_id: null, email: null };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Stripe helpers
 // ---------------------------------------------------------------------------
@@ -348,10 +375,16 @@ async function handleCheckout(request, env) {
     return errorResponse("リクエストボディが不正な JSON です", 400);
   }
 
-  const { area, area_code, user_id, email, success_url, cancel_url } = body;
+  const { area, area_code, success_url, cancel_url } = body;
 
   if (!area || typeof area !== "string" || area.trim() === "") {
     return errorResponse("area フィールドは必須です", 400);
+  }
+
+  // JWTからuser_idを安全に取得（フロントエンドからのuser_idは信頼しない）
+  const { user_id, email } = await getUserFromJWT(request, env);
+  if (!user_id) {
+    return errorResponse("認証が必要です。ログインしてください。", 401);
   }
 
   // success_url / cancel_url はリクエストボディから受け取る（フォールバック付き）
@@ -371,13 +404,13 @@ async function handleCheckout(request, env) {
   params.set("metadata[area]", area.trim());
   params.set("metadata[purchased_at]", timestamp);
 
-  // ユーザーID・エリアコードをメタデータに追加（Supabase DB連携用）
-  if (user_id) params.set("metadata[user_id]", user_id);
+  // JWTから取得したユーザーID・エリアコードをメタデータに追加
+  params.set("metadata[user_id]", user_id);
   if (area_code) params.set("metadata[area_code]", area_code);
 
-  // メールアドレスが提供された場合は事前入力
-  if (email && typeof email === "string" && email.includes("@")) {
-    params.set("customer_email", email.trim());
+  // JWTから取得したメールアドレスをStripe Checkoutに事前入力
+  if (email) {
+    params.set("customer_email", email);
   }
 
   // 日本語対応・日本円固定
