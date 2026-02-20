@@ -1,5 +1,5 @@
 // ========================================
-// AI不動産市場レポート v1.1
+// AI不動産市場レポート v1.2
 // エリア入力 → 政府統計 + AI分析 → プレビュー/課金
 // ========================================
 
@@ -491,6 +491,12 @@ function buildMarketPrompt(analysis, estatPop, estatHousing, area, estatConstruc
     'できる限り正確な数値を提供してください。正確な数値が不明な場合は、合理的な推計値を「推計」と明記して提供してください。\n\n' +
     '重要: "market_summary"フィールドには、このエリアの不動産市場の特徴・動向・展望を1000文字程度の日本語テキストで詳しく記述してください。' +
     '地価の傾向、住宅需要の特徴、主な開発動向、人口動態の影響、投資環境、競合状況など具体的に書いてください。\n\n' +
+    '【重要: 数値の単位ルール】\n' +
+    '- 金額が「万円」表記の項目: 万円単位の数値を入れる（例: 3000万円なら 3000）\n' +
+    '- 金額が「億円」表記の項目: 億円単位の数値を入れる（例: 80億円なら 80）\n' +
+    '- 金額が「円」表記の項目: 円単位の数値を入れる（例: 15万円/㎡なら 150000）\n' +
+    '- 戸数・人数・世帯数: そのままの数値（例: 1500戸なら 1500）\n' +
+    '- パーセント: 数値のみ（例: 65.3%なら 65.3）\n\n' +
     '以下のJSON形式で回答してください。マークダウンのコードブロックで囲まず、純粋JSONのみ返してください:\n' +
     '{\n' +
     '  "area_name": "' + pref + ' ' + city + '",\n' +
@@ -511,16 +517,18 @@ function buildMarketPrompt(analysis, estatPop, estatHousing, area, estatConstruc
     '    "total_units": 0, "detached": 0, "apartment": 0, "owned": 0, "rented": 0\n' +
     '  },\n' +
     '  "housing_market": {\n' +
-    '    "used_home": { "avg_price": 0, "volume": 0, "avg_age": 0, "note": "" },\n' +
-    '    "renovation": { "market_size": 0, "avg_cost": 0, "demand_trend": "", "note": "" },\n' +
-    '    "condo_sale": { "avg_price": 0, "supply": 0, "avg_sqm_price": 0, "note": "" },\n' +
-    '    "condo_rental": { "avg_rent": 0, "vacancy_rate": 0, "supply": 0, "note": "" }\n' +
+    '    "used_home": { "avg_price": 0, "volume": 0, "avg_age": 0, "note": "avg_priceは万円単位" },\n' +
+    '    "renovation": { "market_size": 0, "avg_cost": 0, "demand_trend": "", "note": "market_sizeは億円単位、avg_costは万円単位" },\n' +
+    '    "condo_sale": { "avg_price": 0, "supply": 0, "avg_sqm_price": 0, "note": "avg_priceは万円単位、avg_sqm_priceは万円/㎡単位" },\n' +
+    '    "condo_rental": { "avg_rent": 0, "vacancy_rate": 0, "supply": 0, "note": "avg_rentは円/月単位（例:85000）" }\n' +
     '  },\n' +
     '  "land_price": {\n' +
-    '    "residential_sqm": 0, "residential_tsubo": 0, "commercial_sqm": 0, "yoy_change": "+0.0%"\n' +
+    '    "residential_sqm": 0, "residential_tsubo": 0, "commercial_sqm": 0, "yoy_change": "+0.0%",\n' +
+    '    "note": "全て円/㎡または円/坪単位（例: 住宅地15万円/㎡なら150000）"\n' +
     '  },\n' +
     '  "home_prices": {\n' +
-    '    "avg_price": 0, "price_range": "0〜0万円", "required_income": 0\n' +
+    '    "avg_price": 0, "price_range": "3000〜5000万円", "required_income": 0,\n' +
+    '    "note": "avg_priceとrequired_incomeは万円単位"\n' +
     '  },\n' +
     '  "competition": { "total_companies": 0, "local_builders": 0 },\n' +
     '  "potential": {\n' +
@@ -661,7 +669,7 @@ function renderResults(data, purchased) {
 
     if (hm.used_home) {
       var uh = hm.used_home;
-      if (uh.avg_price && uh.avg_price > 100000) uh.avg_price = Math.round(uh.avg_price / 10000);
+      uh.avg_price = toMan(uh.avg_price);
       html += '<div class="sub-card"><div class="sub-card__title">🏚️ 中古戸建</div>' +
         '<table class="data-table">' +
         '<tr><th>平均価格</th><td>' + (uh.avg_price ? formatNumber(uh.avg_price) + ' 万円' : '—') + '</td></tr>' +
@@ -671,6 +679,8 @@ function renderResults(data, purchased) {
     }
     if (hm.renovation) {
       var rv = hm.renovation;
+      rv.market_size = toOku(rv.market_size);
+      rv.avg_cost = toMan(rv.avg_cost);
       html += '<div class="sub-card"><div class="sub-card__title">🔧 リフォーム市場</div>' +
         '<table class="data-table">' +
         '<tr><th>市場規模</th><td>' + (rv.market_size ? formatNumber(rv.market_size) + ' 億円' : '—') + '</td></tr>' +
@@ -680,7 +690,8 @@ function renderResults(data, purchased) {
     }
     if (hm.condo_sale) {
       var cs = hm.condo_sale;
-      if (cs.avg_price && cs.avg_price > 100000) cs.avg_price = Math.round(cs.avg_price / 10000);
+      cs.avg_price = toMan(cs.avg_price);
+      cs.avg_sqm_price = toMan(cs.avg_sqm_price);
       html += '<div class="sub-card"><div class="sub-card__title">🏢 分譲マンション</div>' +
         '<table class="data-table">' +
         '<tr><th>平均価格</th><td>' + (cs.avg_price ? formatNumber(cs.avg_price) + ' 万円' : '—') + '</td></tr>' +
@@ -690,6 +701,7 @@ function renderResults(data, purchased) {
     }
     if (hm.condo_rental) {
       var cr = hm.condo_rental;
+      // 家賃が万円単位で来た場合（例: 8.5 → 85000円）
       if (cr.avg_rent && cr.avg_rent < 1000) cr.avg_rent = Math.round(cr.avg_rent * 10000);
       html += '<div class="sub-card"><div class="sub-card__title">🏬 賃貸マンション</div>' +
         '<table class="data-table">' +
@@ -704,9 +716,10 @@ function renderResults(data, purchased) {
   // ④ 土地相場
   if (m.land_price) {
     var lp = m.land_price;
-    if (lp.residential_sqm && lp.residential_sqm < 1000) lp.residential_sqm = lp.residential_sqm * 10000;
-    if (lp.residential_tsubo && lp.residential_tsubo < 3000) lp.residential_tsubo = lp.residential_tsubo * 10000;
-    if (lp.commercial_sqm && lp.commercial_sqm < 1000) lp.commercial_sqm = lp.commercial_sqm * 10000;
+    // 円単位で来るはず。万円単位で来た場合（<1000）は円に変換
+    if (lp.residential_sqm && lp.residential_sqm < 1000) lp.residential_sqm = Math.round(lp.residential_sqm * 10000);
+    if (lp.residential_tsubo && lp.residential_tsubo < 3000) lp.residential_tsubo = Math.round(lp.residential_tsubo * 10000);
+    if (lp.commercial_sqm && lp.commercial_sqm < 1000) lp.commercial_sqm = Math.round(lp.commercial_sqm * 10000);
     html += '<div class="result-card' + paidClass + '" data-section="paid">' +
       '<div class="result-card__header"><div class="result-card__icon">🗺️</div>' +
       '<div><div class="result-card__title">④ 土地相場</div>' +
@@ -723,10 +736,8 @@ function renderResults(data, purchased) {
   // ⑤ 新築住宅相場
   if (m.home_prices) {
     var hp = m.home_prices;
-    var avgP = hp.avg_price || 0;
-    if (avgP > 50000) avgP = Math.round(avgP / 10000);
-    var reqInc = hp.required_income || 0;
-    if (reqInc > 50000) reqInc = Math.round(reqInc / 10000);
+    var avgP = toMan(hp.avg_price || 0);
+    var reqInc = toMan(hp.required_income || 0);
     html += '<div class="result-card' + paidClass + '" data-section="paid">' +
       '<div class="result-card__header"><div class="result-card__icon">🏠</div>' +
       '<div><div class="result-card__title">⑤ 新築住宅相場</div>' +
@@ -1049,6 +1060,23 @@ function showError(msg) {
 }
 
 function hideError() { errorMsg.classList.remove('is-active'); }
+
+// 万円単位に変換（円単位で来た場合に対応）
+function toMan(val) {
+  if (!val || val === 0) return 0;
+  // 100万以上なら円単位と判断して万に変換（例: 30000000→3000万）
+  if (val > 100000) return Math.round(val / 10000);
+  return val;
+}
+
+// 億円単位に変換（円単位で来た場合に対応）
+function toOku(val) {
+  if (!val || val === 0) return 0;
+  // 1万以上なら円or万円単位と判断
+  if (val > 1000000000) return Math.round(val / 100000000); // 円→億
+  if (val > 10000) return Math.round(val / 10000); // 万円→億（稀）
+  return val;
+}
 
 function escapeHtml(str) {
   if (!str) return '';
