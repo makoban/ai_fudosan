@@ -1,5 +1,5 @@
 // ========================================
-// AI不動産市場レポート v1.0
+// AI不動産市場レポート v1.1
 // エリア入力 → 政府統計 + AI分析 → プレビュー/課金
 // ========================================
 
@@ -67,8 +67,7 @@ function initAutocomplete() {
       return;
     }
 
-    var allResults = searchArea(query);
-    currentItems = allResults.slice(0, 10);
+    currentItems = searchArea(query);
     selectedIdx = -1;
 
     if (currentItems.length === 0) {
@@ -90,12 +89,6 @@ function initAutocomplete() {
       });
       dropdown.appendChild(item);
     });
-    if (allResults.length > 10) {
-      var countEl = document.createElement('div');
-      countEl.className = 'autocomplete-count';
-      countEl.textContent = '他 ' + (allResults.length - 10) + '件（文字を追加して絞り込み）';
-      dropdown.appendChild(countEl);
-    }
     dropdown.style.display = 'block';
   });
 
