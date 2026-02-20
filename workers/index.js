@@ -314,16 +314,16 @@ async function handleCheckout(request, env) {
     return errorResponse("リクエストボディが不正な JSON です", 400);
   }
 
-  const { area, email } = body;
+  const { area, email, success_url, cancel_url } = body;
 
   if (!area || typeof area !== "string" || area.trim() === "") {
     return errorResponse("area フィールドは必須です", 400);
   }
 
-  // success_url / cancel_url はリクエスト元の Origin を基準にする
-  const origin = request.headers.get("Origin") ?? "https://ai-fudosan.pages.dev";
-  const successUrl = `${origin}/result?session_id={CHECKOUT_SESSION_ID}`;
-  const cancelUrl = `${origin}/`;
+  // success_url / cancel_url はリクエストボディから受け取る（フォールバック付き）
+  const origin = request.headers.get("Origin") ?? "https://ai-fudosan.bantex.jp";
+  const successUrl = success_url || `${origin}/?session_id={CHECKOUT_SESSION_ID}`;
+  const cancelUrl = cancel_url || `${origin}/`;
 
   const timestamp = Math.floor(Date.now() / 1000).toString();
 
