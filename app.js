@@ -6,7 +6,7 @@
 // ---- Config ----
 var WORKER_BASE = 'https://house-search-proxy.ai-fudosan.workers.dev';
 // テストモード（本番移行時にliveキーに切り替え）
-var STRIPE_PUBLISHABLE_KEY = 'pk_test_51SIP0L1TYnppSLqNtest'; // TODO: Stripeダッシュボードからテスト公開キーを設定
+var STRIPE_PUBLISHABLE_KEY = 'pk_test_51SlP0L1TYnppSLqN6tbxRHKShC5tMahUClsl4dwdOTaGpmsI1ZVTri0lAkNNTwXJlpCY6KUqiLY9C5fJ6TnGy6x700hTjmcYDh';
 
 // ---- Prefecture Codes ----
 var PREFECTURE_CODES = {
@@ -67,7 +67,8 @@ function initAutocomplete() {
       return;
     }
 
-    currentItems = searchArea(query).slice(0, 8);
+    var allResults = searchArea(query);
+    currentItems = allResults.slice(0, 8);
     selectedIdx = -1;
 
     if (currentItems.length === 0) {
@@ -79,8 +80,9 @@ function initAutocomplete() {
     currentItems.forEach(function(area, idx) {
       var item = document.createElement('div');
       item.className = 'autocomplete-item';
+      var highlighted = highlightMatch(area.fullLabel, query);
       item.innerHTML = '<span class="autocomplete-item__icon">' + (area.type === 'prefecture' ? '🗾' : '📍') + '</span>' +
-        '<div><div class="autocomplete-item__name">' + escapeHtml(area.fullLabel) + '</div>' +
+        '<div><div class="autocomplete-item__name">' + highlighted + '</div>' +
         '<div class="autocomplete-item__type">' + (area.type === 'prefecture' ? '都道府県' : '市区町村') + '</div></div>';
       item.addEventListener('mousedown', function(e) {
         e.preventDefault();
@@ -88,6 +90,12 @@ function initAutocomplete() {
       });
       dropdown.appendChild(item);
     });
+    if (allResults.length > 8) {
+      var countEl = document.createElement('div');
+      countEl.className = 'autocomplete-count';
+      countEl.textContent = '他 ' + (allResults.length - 8) + '件（文字を追加して絞り込み）';
+      dropdown.appendChild(countEl);
+    }
     dropdown.style.display = 'block';
   });
 
@@ -1039,6 +1047,12 @@ function hideError() { errorMsg.classList.remove('is-active'); }
 function escapeHtml(str) {
   if (!str) return '';
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function highlightMatch(text, query) {
+  var escaped = escapeHtml(text);
+  var escapedQuery = escapeHtml(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return escaped.replace(new RegExp('(' + escapedQuery + ')', 'gi'), '<mark>$1</mark>');
 }
 
 function formatNumber(num) {

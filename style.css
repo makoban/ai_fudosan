@@ -1963,6 +1963,20 @@ body {
   margin-top: 1px;
 }
 
+.autocomplete-item__name mark {
+  background: transparent;
+  color: #818cf8;
+  font-weight: 700;
+}
+
+.autocomplete-count {
+  padding: 8px 14px;
+  font-size: 11px;
+  color: var(--text-muted);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  text-align: right;
+}
+
 /* ========================================
    ai_fudosan - Mobile Responsive additions
    ======================================== */
