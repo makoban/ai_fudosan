@@ -769,6 +769,78 @@ async function handlePurchases(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Analysis Data API (DB保存・読み出し)
+// ---------------------------------------------------------------------------
+
+/**
+ * 分析データをDBに保存する。
+ */
+async function handleSaveAnalysisData(request, env) {
+  const { user_id } = await getUserFromJWT(request, env);
+  if (!user_id) return errorResponse("認証が必要です", 401);
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return errorResponse("リクエストボディが不正です", 400);
+  }
+
+  const { area_name, analysis_data } = body;
+  if (!area_name || !analysis_data) {
+    return errorResponse("area_name と analysis_data は必須です", 400);
+  }
+
+  const result = await supabaseRequest(
+    `/purchases?user_id=eq.${user_id}&area_name=eq.${encodeURIComponent(area_name)}`,
+    "PATCH",
+    { analysis_data },
+    env,
+    { prefer: "return=representation" }
+  );
+
+  if (!result.ok) {
+    return errorResponse("データ保存エラー", 500);
+  }
+
+  return jsonResponse({ saved: true });
+}
+
+/**
+ * 保存済みの分析データをDBから取得する。
+ */
+async function handleGetAnalysisData(request, env) {
+  const { user_id } = await getUserFromJWT(request, env);
+  if (!user_id) return errorResponse("認証が必要です", 401);
+
+  const url = new URL(request.url);
+  const areaName = url.searchParams.get("area_name");
+  if (!areaName) return errorResponse("area_name は必須です", 400);
+
+  const result = await supabaseRequest(
+    `/purchases?user_id=eq.${user_id}&area_name=eq.${encodeURIComponent(areaName)}&select=analysis_data,purchased_at&order=purchased_at.desc&limit=1`,
+    "GET",
+    null,
+    env
+  );
+
+  if (!result.ok || !result.data || result.data.length === 0) {
+    return jsonResponse({ found: false });
+  }
+
+  const row = result.data[0];
+  if (!row.analysis_data) {
+    return jsonResponse({ found: false });
+  }
+
+  return jsonResponse({
+    found: true,
+    analysis_data: row.analysis_data,
+    purchased_at: row.purchased_at,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
 
@@ -825,6 +897,16 @@ async function router(request, env, ctx) {
   // GET /api/purchases
   if (path === "/api/purchases" && method === "GET") {
     return handlePurchases(request, env);
+  }
+
+  // POST /api/purchases/save-data - 分析データをDBに保存
+  if (path === "/api/purchases/save-data" && method === "POST") {
+    return handleSaveAnalysisData(request, env);
+  }
+
+  // GET /api/purchases/data - 保存済みの分析データを取得
+  if (path === "/api/purchases/data" && method === "GET") {
+    return handleGetAnalysisData(request, env);
   }
 
   // 404

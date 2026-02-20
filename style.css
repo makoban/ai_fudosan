@@ -1791,6 +1791,24 @@ body {
   transform: none;
 }
 
+.purchase-prompt__cancel {
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  padding: 12px 40px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: 'Noto Sans JP', sans-serif;
+  cursor: pointer;
+  transition: var(--transition);
+  margin-top: 10px;
+}
+.purchase-prompt__cancel:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
 .purchase-prompt__note {
   font-size: 11px;
   color: var(--text-muted);

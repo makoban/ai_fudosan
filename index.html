@@ -9,6 +9,7 @@
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
   <script src="https://js.stripe.com/v3/" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
@@ -27,7 +28,7 @@
       </div>
       <div class="header__actions">
         <div id="auth-area"></div>
-        <div class="header__badge">v1.4</div>
+        <div class="header__badge">v1.5</div>
       </div>
     </div>
   </header>
@@ -146,6 +147,7 @@
       <div class="results__header">
         <h2 class="results__title">📋 分析レポート</h2>
         <div class="results__actions">
+          <button class="btn-pdf" onclick="handlePdfDownload()" style="background:linear-gradient(135deg,#3b82f6,#8b5cf6);">📄 PDF出力</button>
           <button class="btn-excel" onclick="handleExcelDownload()" style="background:linear-gradient(135deg,#10b981,#059669);">📊 Excel出力</button>
           <button class="btn-rerun" onclick="resetAll()">🔄 新規分析</button>
         </div>
@@ -170,6 +172,9 @@
       </div>
       <button id="purchase-btn" class="purchase-prompt__btn" onclick="startCheckout()">
         💳 購入してレポートを見る
+      </button>
+      <button class="purchase-prompt__cancel" onclick="cancelPurchasePrompt()">
+        ✕ 閉じる
       </button>
       <p class="purchase-prompt__note">購入済みエリアは履歴からいつでも再閲覧できます</p>
     </div>
@@ -248,7 +253,7 @@
   <!-- Footer -->
   <footer class="footer">
     <div class="container">
-      <p class="footer__text">&copy; 2026 AI不動産市場レポート v1.4 &mdash; Powered by AI + 政府統計データ</p>
+      <p class="footer__text">&copy; 2026 AI不動産市場レポート v1.5 &mdash; Powered by AI + 政府統計データ</p>
       <div class="footer__links">
         <a href="tokushoho.html">特定商取引法に基づく表記</a>
       </div>
