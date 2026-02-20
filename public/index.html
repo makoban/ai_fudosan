@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI不動産市場レポート - エリア分析を自動生成</title>
+  <meta name="description" content="エリア名を入力するだけ。AIが政府統計データをもとに不動産市場レポートを自動生成します。人口・世帯・着工・相場・競合を一括分析。">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
+  <script src="https://js.stripe.com/v3/" defer></script>
+</head>
+<body>
+
+  <!-- Background Effects -->
+  <div class="bg-grid"></div>
+  <div class="bg-blob bg-blob--1"></div>
+  <div class="bg-blob bg-blob--2"></div>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="container header__inner">
+      <div class="header__logo">
+        <div class="header__logo-icon">🏠</div>
+        <span class="header__logo-text">AI不動産市場レポート</span>
+      </div>
+      <div class="header__actions">
+        <button id="history-btn" class="header__history-btn">📋 購入履歴</button>
+        <div class="header__badge">v1.0</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero__content">
+        <div class="hero__badge">
+          <span class="hero__badge-dot"></span>
+          AI-Powered Market Analysis
+        </div>
+        <h1 class="hero__title">AI不動産市場<span>レポート</span></h1>
+        <p class="hero__subtitle">
+          エリア名を入力するだけ。<br>
+          AIが政府統計データをもとに、不動産市場レポートを自動生成します。
+        </p>
+
+        <!-- Search Card -->
+        <div class="search-card">
+          <label class="search__label" for="area-input">分析したいエリア名を入力</label>
+          <div class="search__input-wrap">
+            <input
+              type="text"
+              id="area-input"
+              class="search__input"
+              placeholder="例: 渋谷区、岡山市、北海道..."
+              autocomplete="off"
+            >
+            <button id="analyze-btn" class="search__btn" onclick="startAnalysis()">
+              <span class="btn-text">🔍 分析開始</span>
+              <span class="spinner"></span>
+            </button>
+          </div>
+          <p class="search__hint">💡 都道府県名・市区町村名を入力してください（全国1,892エリア対応）</p>
+          <div id="error-msg" class="error-msg"></div>
+        </div>
+
+        <!-- Features -->
+        <div class="features">
+          <div class="feature-item">
+            <div class="feature-item__icon">📊</div>
+            <div class="feature-item__title">政府統計データ</div>
+            <div class="feature-item__desc">e-Stat実データで正確分析</div>
+          </div>
+          <div class="feature-item">
+            <div class="feature-item__icon">🤖</div>
+            <div class="feature-item__title">AI市場分析</div>
+            <div class="feature-item__desc">相場・競合・潜在顧客を推定</div>
+          </div>
+          <div class="feature-item">
+            <div class="feature-item__icon">📊</div>
+            <div class="feature-item__title">Excelレポート</div>
+            <div class="feature-item__desc">分析結果をワンクリック出力</div>
+          </div>
+        </div>
+
+        <!-- Pricing info -->
+        <div class="pricing-info">
+          <div class="pricing-info__free">
+            <span class="pricing-info__badge pricing-info__badge--free">無料</span>
+            人口・世帯数データ
+          </div>
+          <div class="pricing-info__paid">
+            <span class="pricing-info__badge pricing-info__badge--paid">¥150</span>
+            建築着工・持ち家率・空き家率・土地相場・新築相場・競合分析・潜在顧客・Excel出力
+          </div>
+        </div>
+      </div>
+
+      <!-- OL Character -->
+      <div class="hero__character-wrap">
+        <img src="OL2.png" class="hero__character" alt="OL Character">
+      </div>
+    </div>
+  </section>
+
+  <!-- Progress -->
+  <section id="progress-section" class="progress-section">
+    <div class="container">
+      <div class="progress__steps">
+        <div class="progress__step" id="step-data">
+          <div class="progress__step-icon">📊</div>
+          <div class="progress__step-content">
+             <div class="progress__step-title">統計データ取得</div>
+             <div class="progress__step-desc">政府統計APIからデータを取得中...</div>
+          </div>
+        </div>
+        <div class="progress__step" id="step-ai">
+          <div class="progress__step-icon">🤖</div>
+          <div class="progress__step-content">
+             <div class="progress__step-title">AI市場分析</div>
+             <div class="progress__step-desc">AIが市場データを分析中...</div>
+          </div>
+        </div>
+        <div class="progress__step" id="step-report">
+          <div class="progress__step-icon">📄</div>
+          <div class="progress__step-content">
+             <div class="progress__step-title">レポート作成</div>
+             <div class="progress__step-desc">レポートを生成中...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detailed Log Area -->
+      <div class="progress__logs">
+        <div class="progress__logs-header">詳細ログ</div>
+        <div id="progress-log-content" class="progress__logs-content">
+          <div class="log-item">待機中...</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Results -->
+  <section id="results-section" class="results-section">
+    <div class="container">
+      <div class="results__header">
+        <h2 class="results__title">📋 分析レポート</h2>
+        <div class="results__actions">
+          <button class="btn-excel" onclick="handleExcelDownload()" style="background:linear-gradient(135deg,#10b981,#059669);">📊 Excel出力</button>
+          <button class="btn-rerun" onclick="resetAll()">🔄 新規分析</button>
+        </div>
+      </div>
+      <div id="results-content">
+        <!-- Dynamically filled by app.js -->
+      </div>
+    </div>
+  </section>
+
+  <!-- Purchase Prompt (overlay for paid content) -->
+  <div id="purchase-prompt" class="purchase-prompt" style="display:none;">
+    <div class="purchase-prompt__card">
+      <div class="purchase-prompt__icon">🔒</div>
+      <h3 class="purchase-prompt__title">完全版レポートを購入</h3>
+      <p class="purchase-prompt__desc">
+        建築着工統計・持ち家率・空き家率・土地相場・新築住宅相場・競合分析・潜在顧客・Excel出力が含まれます。
+      </p>
+      <div class="purchase-prompt__price">
+        <span class="purchase-prompt__amount">¥150</span>
+        <span class="purchase-prompt__unit">/ 1エリア（税込）</span>
+      </div>
+      <button id="purchase-btn" class="purchase-prompt__btn" onclick="startCheckout()">
+        💳 購入してレポートを見る
+      </button>
+      <p class="purchase-prompt__note">購入済みエリアは履歴からいつでも再閲覧できます</p>
+    </div>
+  </div>
+
+  <!-- Purchase History Modal -->
+  <div id="history-modal" class="modal">
+    <div class="modal__content" style="max-width:560px;">
+      <div class="modal__header">
+        <h3>📋 購入履歴</h3>
+        <button class="modal__close" onclick="document.getElementById('history-modal').classList.remove('active')">&times;</button>
+      </div>
+      <div class="modal__body">
+        <p class="modal__desc">購入済みエリアのレポートを再閲覧できます。</p>
+        <div id="history-list" style="display:flex; flex-direction:column; gap:8px;">
+          <p style="color:var(--text-muted); font-size:13px;">購入履歴はありません</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Area Select Modal -->
+  <div id="area-select-modal" class="modal">
+    <div class="modal__content" style="max-width:480px;">
+      <div class="modal__header">
+        <h3>📍 エリアを選択してください</h3>
+        <button class="modal__close" onclick="document.getElementById('area-select-modal').classList.remove('active')">&times;</button>
+      </div>
+      <div class="modal__body">
+        <p class="modal__desc">同じ名前のエリアが複数見つかりました。分析したいエリアを選んでください。</p>
+        <div id="area-select-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <p class="footer__text">&copy; 2026 AI不動産市場レポート v1.0 &mdash; Powered by AI + 政府統計データ</p>
+      <div class="footer__links">
+        <a href="tokushoho.html">特定商取引法に基づく表記</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="area-database.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

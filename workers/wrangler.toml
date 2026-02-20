@@ -1,0 +1,48 @@
+name = "ai-fudosan-api"
+main = "index.js"
+compatibility_date = "2024-09-25"
+
+# --------------------------------------------------------------------------
+# 公開しても問題ない変数（[vars] に記載）
+# --------------------------------------------------------------------------
+[vars]
+STRIPE_PRICE_ID = "price_1T2uG51TYnppSLqNpDTETGU1"
+
+# --------------------------------------------------------------------------
+# KV Namespace バインディング
+# --------------------------------------------------------------------------
+# 手順:
+#   1. wrangler kv:namespace create PURCHASES
+#   2. 表示された id を下記にコピーする
+#   3. プレビュー用: wrangler kv:namespace create PURCHASES --preview
+#      → preview_id にコピーする
+# --------------------------------------------------------------------------
+[[kv_namespaces]]
+binding = "PURCHASES"
+id = "（要設定: wrangler kv:namespace create PURCHASES で取得）"
+# preview_id = "（要設定: --preview オプションで取得）"
+
+# --------------------------------------------------------------------------
+# シークレット（絶対にここに書かない。wrangler secret put で設定）
+# --------------------------------------------------------------------------
+# wrangler secret put GEMINI_API_KEY
+# wrangler secret put ESTAT_APP_ID
+# wrangler secret put STRIPE_SECRET_KEY
+# wrangler secret put STRIPE_WEBHOOK_SECRET
+#
+# 確認コマンド: wrangler secret list
+
+# --------------------------------------------------------------------------
+# Cloudflare Pages との連携（将来: Cloudflare Pages Functions を使う場合）
+# --------------------------------------------------------------------------
+# pages_build_output_dir = "../frontend/dist"
+
+# --------------------------------------------------------------------------
+# ローカル開発（wrangler dev）用の設定例
+# .dev.vars ファイルに下記を記載してローカルで動かせる（Git にコミットしない）
+# --------------------------------------------------------------------------
+# .dev.vars の内容例:
+#   GEMINI_API_KEY=AIza...
+#   ESTAT_APP_ID=xxxx
+#   STRIPE_SECRET_KEY=sk_test_...
+#   STRIPE_WEBHOOK_SECRET=whsec_...
