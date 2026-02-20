@@ -1,4 +1,4 @@
-name = "ai-fudosan-api"
+name = "house-search-proxy"
 main = "index.js"
 compatibility_date = "2024-09-25"
 
@@ -19,7 +19,7 @@ STRIPE_PRICE_ID = "price_1T2uG51TYnppSLqNpDTETGU1"
 # --------------------------------------------------------------------------
 [[kv_namespaces]]
 binding = "PURCHASES"
-id = "（要設定: wrangler kv:namespace create PURCHASES で取得）"
+id = "75c2f2e23010403e9b7ad9b5bc1b2c91"
 # preview_id = "（要設定: --preview オプションで取得）"
 
 # --------------------------------------------------------------------------

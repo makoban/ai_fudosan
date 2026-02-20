@@ -110,8 +110,18 @@ async function handleGemini(request, env) {
 
   // モデル名をボディから取得（省略時はデフォルト）
   const model = body.model ?? "gemini-2.0-flash";
-  // model キーを転送ボディから除外して Gemini API 仕様に合わせる
-  const { model: _model, ...geminiBody } = body;
+
+  // app.js が {prompt: "text"} で送ってくる場合、Gemini API 形式に変換
+  let geminiBody;
+  if (body.prompt && !body.contents) {
+    geminiBody = {
+      contents: [{ parts: [{ text: body.prompt }] }],
+      generationConfig: body.generationConfig || { temperature: 0.7, maxOutputTokens: 4096 },
+    };
+  } else {
+    const { model: _model, ...rest } = body;
+    geminiBody = rest;
+  }
 
   const url = `${GEMINI_API_BASE}/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`;
 
@@ -135,7 +145,9 @@ async function handleGemini(request, env) {
     );
   }
 
-  return jsonResponse(responseData);
+  // app.js が data.text を期待しているので、Gemini レスポンスからテキストを抽出
+  const text = responseData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  return jsonResponse({ text, raw: responseData });
 }
 
 // ---------------------------------------------------------------------------
@@ -155,7 +167,8 @@ async function fetchEstat(endpoint, params, env) {
     return errorResponse("ESTAT_APP_ID が設定されていません", 500);
   }
 
-  params.set("appId", env.ESTAT_APP_ID);
+  const appId = (typeof env.ESTAT_APP_ID === "string") ? env.ESTAT_APP_ID.trim() : env.ESTAT_APP_ID;
+  params.set("appId", appId);
 
   const url = `${ESTAT_API_BASE}${endpoint}?${params.toString()}`;
 
