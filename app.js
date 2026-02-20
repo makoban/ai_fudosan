@@ -489,9 +489,12 @@ function buildMarketPrompt(analysis, estatPop, estatHousing, area, estatConstruc
     '企業の事業: ' + (company.business_type || '不明') + '\n' +
     estatInfo + '\n' +
     'できる限り正確な数値を提供してください。正確な数値が不明な場合は、合理的な推計値を「推計」と明記して提供してください。\n\n' +
+    '重要: "market_summary"フィールドには、このエリアの不動産市場の特徴・動向・展望を1000文字程度の日本語テキストで詳しく記述してください。' +
+    '地価の傾向、住宅需要の特徴、主な開発動向、人口動態の影響、投資環境、競合状況など具体的に書いてください。\n\n' +
     '以下のJSON形式で回答してください。マークダウンのコードブロックで囲まず、純粋JSONのみ返してください:\n' +
     '{\n' +
     '  "area_name": "' + pref + ' ' + city + '",\n' +
+    '  "market_summary": "（このエリアの不動産市場の特徴・動向・展望を1000文字程度で記述）",\n' +
     '  "population": {\n' +
     '    "total_population": 0,\n' +
     '    "households": 0,\n' +
@@ -591,9 +594,19 @@ function renderResults(data, purchased) {
       '</div></div></div>';
   }
 
-  // ---- 有料セクション開始 ----
+  // AI市場分析（有料）
   var paidClass = purchased ? '' : ' blurred-section';
   var paidOverlay = purchased ? '' : '<div class="blur-overlay"><div class="blur-overlay__inner"><span class="blur-overlay__icon">🔒</span><span>購入すると表示されます</span></div></div>';
+
+  if (m.market_summary) {
+    html += '<div class="result-card' + paidClass + '" data-section="paid">' +
+      '<div class="result-card__header"><div class="result-card__icon">🤖</div>' +
+      '<div><div class="result-card__title">AI市場分析</div>' +
+      '<div class="result-card__subtitle">' + (purchased ? '' : '<span class="badge-paid">有料</span>') + '</div></div></div>' +
+      '<div class="result-card__body">' + paidOverlay +
+      '<div class="market-summary">' + escapeHtml(m.market_summary).replace(/\n/g, '<br>') + '</div>' +
+      '</div></div>';
+  }
 
   // ② 建築着工
   if (m.construction) {

@@ -1902,6 +1902,19 @@ body {
 }
 
 /* ========================================
+   ai_fudosan - Market Summary
+   ======================================== */
+.market-summary {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--text);
+  padding: 16px;
+  background: rgba(99, 102, 241, 0.05);
+  border-radius: 8px;
+  border-left: 3px solid rgba(99, 102, 241, 0.4);
+}
+
+/* ========================================
    ai_fudosan - Log items (fix class names)
    ======================================== */
 .log-item--success { color: #10b981; }
