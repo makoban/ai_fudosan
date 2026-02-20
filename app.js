@@ -68,7 +68,7 @@ function initAutocomplete() {
     }
 
     var allResults = searchArea(query);
-    currentItems = allResults.slice(0, 8);
+    currentItems = allResults.slice(0, 10);
     selectedIdx = -1;
 
     if (currentItems.length === 0) {
@@ -90,10 +90,10 @@ function initAutocomplete() {
       });
       dropdown.appendChild(item);
     });
-    if (allResults.length > 8) {
+    if (allResults.length > 10) {
       var countEl = document.createElement('div');
       countEl.className = 'autocomplete-count';
-      countEl.textContent = '他 ' + (allResults.length - 8) + '件（文字を追加して絞り込み）';
+      countEl.textContent = '他 ' + (allResults.length - 10) + '件（文字を追加して絞り込み）';
       dropdown.appendChild(countEl);
     }
     dropdown.style.display = 'block';
@@ -1083,6 +1083,5 @@ function searchArea(input) {
     }
   }
 
-  // 20件以下なら返す
-  return results.length <= 20 ? results : results.slice(0, 20);
+  return results;
 }
