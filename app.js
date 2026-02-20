@@ -594,6 +594,11 @@ async function runAreaAnalysis(area) {
     hideProgress();
     showResults();
 
+    // 購入済みエリアなら分析データをDBにも保存（履歴から再分析不要にする）
+    if (isPurchased && currentUser) {
+      _saveAnalysisDataToDB(area.fullLabel, analysisData);
+    }
+
   } catch (err) {
     addLog('エラー: ' + err.message, 'error');
     showError(err.message);
@@ -997,6 +1002,7 @@ function renderResults(data, purchased) {
     document.getElementById('purchase-prompt').style.display = 'flex';
   } else {
     document.getElementById('purchase-prompt').style.display = 'none';
+    hidePurchaseFloat();
   }
 }
 
@@ -1263,209 +1269,196 @@ async function exportPDF() {
   var area = analysisData.area;
   var dateStr = new Date().toLocaleDateString('ja-JP');
 
+  // DOM外に配置してhtml2canvasが正確にキャプチャできるようにする
   var container = document.createElement('div');
-  container.style.cssText = 'width:210mm; padding:12mm 15mm; font-family:"Noto Sans JP","Hiragino Sans",sans-serif; color:#1a1a2e; background:#fff; font-size:10px; line-height:1.6;';
+  container.style.cssText = 'position:fixed; top:0; left:0; z-index:-9999; width:180mm; font-family:"Noto Sans JP","Hiragino Sans",sans-serif; color:#1a1a2e; background:#fff; font-size:9.5px; line-height:1.5;';
 
   var html = '';
 
-  // ===== ヘッダー =====
-  html += '<div style="text-align:center; margin-bottom:18px; padding-bottom:12px; border-bottom:3px solid #3b82f6;">';
-  html += '<div style="font-size:22px; font-weight:800; letter-spacing:0.05em;">AI不動産市場レポート</div>';
-  html += '<div style="font-size:16px; color:#3b82f6; font-weight:700; margin-top:4px;">' + escapeHtml(area.fullLabel) + '</div>';
-  html += '<div style="font-size:9px; color:#888; margin-top:4px;">分析日: ' + dateStr + ' | データソース: 政府統計(e-Stat) + AI分析(Gemini)</div>';
-  html += '</div>';
+  // セクション共通スタイル（コンパクト化）
+  var S = 'page-break-inside:avoid; margin-bottom:8px; border:1px solid #cbd5e1; border-radius:4px; padding:7px 10px;';
+  var T = 'font-size:11.5px; font-weight:700; border-left:4px solid #3b82f6; padding-left:7px; margin-bottom:5px; color:#1e293b;';
+  var TBL = 'width:100%; border-collapse:collapse; font-size:9.5px;';
+  var TH = 'text-align:left; padding:3px 6px; background:#f1f5f9; border:1px solid #e2e8f0; font-weight:600; color:#334155; width:38%;';
+  var TD = 'padding:3px 6px; border:1px solid #e2e8f0; color:#1e293b;';
+  var SUB = 'padding:3px 6px; background:#dbeafe; border:1px solid #e2e8f0; font-weight:600; color:#1e40af;';
 
-  // ===== セクション共通スタイル =====
-  var sectionStyle = 'page-break-inside:avoid; margin-bottom:14px; border:1px solid #e2e8f0; border-radius:6px; padding:10px 12px;';
-  var titleStyle = 'font-size:13px; font-weight:700; border-left:4px solid #3b82f6; padding-left:8px; margin-bottom:8px; color:#1e293b;';
-  var tableStyle = 'width:100%; border-collapse:collapse; font-size:10px;';
-  var thStyle = 'text-align:left; padding:4px 8px; background:#f1f5f9; border:1px solid #e2e8f0; font-weight:600; color:#334155; width:40%;';
-  var tdStyle = 'padding:4px 8px; border:1px solid #e2e8f0; color:#1e293b;';
-
-  function row(label, val) {
-    return '<tr><th style="' + thStyle + '">' + escapeHtml(label) + '</th><td style="' + tdStyle + '">' + escapeHtml(String(val || '—')) + '</td></tr>';
+  function r(label, val) {
+    return '<tr><th style="' + TH + '">' + escapeHtml(label) + '</th><td style="' + TD + '">' + escapeHtml(String(val || '—')) + '</td></tr>';
   }
+
+  // ===== ヘッダー =====
+  html += '<div style="text-align:center; margin-bottom:10px; padding-bottom:8px; border-bottom:2px solid #3b82f6;">';
+  html += '<div style="font-size:18px; font-weight:800;">AI不動産市場レポート</div>';
+  html += '<div style="font-size:14px; color:#3b82f6; font-weight:700; margin-top:2px;">' + escapeHtml(area.fullLabel) + '</div>';
+  html += '<div style="font-size:8px; color:#888; margin-top:2px;">分析日: ' + dateStr + ' | データソース: 政府統計(e-Stat) + AI分析(Gemini)</div>';
+  html += '</div>';
 
   // ===== 1. 人口・世帯 =====
   if (m.population) {
-    var p = m.population;
-    html += '<div style="' + sectionStyle + '">';
-    html += '<div style="' + titleStyle + '">1. 人口・世帯データ</div>';
-    html += '<table style="' + tableStyle + '">';
-    html += row('総人口', formatNumber(p.total_population));
-    html += row('世帯数', formatNumber(p.households));
-    html += row('30〜45歳比率', (p.age_30_45_pct || '—') + '%');
-    html += row('65歳以上比率', (p.elderly_pct || '—') + '%');
-    html += row('人口増減率', p.population_growth || '—');
-    if (p.source) html += row('データソース', p.source);
+    var pop = m.population;
+    html += '<div style="' + S + '"><div style="' + T + '">1. 人口・世帯データ</div>';
+    html += '<table style="' + TBL + '">';
+    html += r('総人口', formatNumber(pop.total_population));
+    html += r('世帯数', formatNumber(pop.households));
+    html += r('30〜45歳比率', (pop.age_30_45_pct || '—') + '%');
+    html += r('65歳以上比率', (pop.elderly_pct || '—') + '%');
+    html += r('人口増減率', pop.population_growth || '—');
+    if (pop.source) html += r('データソース', pop.source);
     html += '</table></div>';
+  }
+
+  // ===== AI市場分析（ビューと同じ順序）=====
+  if (m.market_summary) {
+    html += '<div style="' + S + '"><div style="' + T + '">AI市場分析</div>';
+    html += '<div style="font-size:9px; color:#334155; white-space:pre-wrap; line-height:1.5;">' + escapeHtml(m.market_summary) + '</div>';
+    html += '</div>';
   }
 
   // ===== 2. 建築着工統計 =====
   if (m.construction) {
     var c = m.construction;
-    html += '<div style="' + sectionStyle + '">';
-    html += '<div style="' + titleStyle + '">2. 建築着工統計</div>';
-    html += '<table style="' + tableStyle + '">';
-    html += row('着工戸数(年)', formatNumber(c.total));
-    html += row('持家', formatNumber(c.owner_occupied));
-    html += row('貸家', formatNumber(c.rental));
-    html += row('分譲', formatNumber(c.condo_sale));
-    html += row('前年比', c.yoy_change || '—');
+    html += '<div style="' + S + '"><div style="' + T + '">2. 建築着工統計</div>';
+    html += '<table style="' + TBL + '">';
+    html += r('着工戸数(年)', formatNumber(c.total));
+    html += r('持家', formatNumber(c.owner_occupied));
+    html += r('貸家', formatNumber(c.rental));
+    html += r('分譲', formatNumber(c.condo_sale));
+    html += r('前年比', c.yoy_change || '—');
     html += '</table></div>';
   }
 
   // ===== 3. 住宅統計 =====
   if (m.housing) {
     var h = m.housing;
-    html += '<div style="' + sectionStyle + '">';
-    html += '<div style="' + titleStyle + '">3. 住宅統計</div>';
-    html += '<table style="' + tableStyle + '">';
-    html += row('持ち家率', (h.ownership_rate || '—') + '%');
-    html += row('空き家率', (h.vacancy_rate || '—') + '%');
-    html += row('住宅総数', formatNumber(h.total_units));
-    html += row('一戸建', formatNumber(h.detached));
-    html += row('共同住宅', formatNumber(h.apartment));
+    html += '<div style="' + S + '"><div style="' + T + '">3. 住宅統計</div>';
+    html += '<table style="' + TBL + '">';
+    html += r('持ち家率', (h.ownership_rate || '—') + '%');
+    html += r('空き家率', (h.vacancy_rate || '—') + '%');
+    html += r('住宅総数', formatNumber(h.total_units));
+    html += r('一戸建', formatNumber(h.detached));
+    html += r('共同住宅', formatNumber(h.apartment));
     html += '</table></div>';
   }
 
-  // ===== 4. 土地相場 =====
-  if (m.land_price) {
-    var lp = m.land_price;
-    html += '<div style="' + sectionStyle + '">';
-    html += '<div style="' + titleStyle + '">4. 土地相場</div>';
-    html += '<table style="' + tableStyle + '">';
-    html += row('住宅地 坪単価', formatNumber(lp.residential_tsubo) + '円');
-    html += row('住宅地 ㎡単価', formatNumber(lp.residential_sqm) + '円');
-    html += row('商業地 ㎡単価', formatNumber(lp.commercial_sqm) + '円');
-    html += row('前年比', lp.yoy_change || '—');
-    html += '</table></div>';
-  }
-
-  // ===== ページ区切り =====
-  html += '<div style="page-break-before:always;"></div>';
-
-  // ===== 5. 新築住宅相場 =====
-  if (m.home_prices) {
-    var hp = m.home_prices;
-    html += '<div style="' + sectionStyle + '">';
-    html += '<div style="' + titleStyle + '">5. 新築住宅相場</div>';
-    html += '<table style="' + tableStyle + '">';
-    html += row('平均価格', toMan(hp.avg_price) + '万円');
-    html += row('価格帯', hp.price_range || '—');
-    html += row('目安年収', toMan(hp.required_income) + '万円');
-    html += '</table></div>';
-  }
-
-  // ===== 6. 不動産市場 =====
+  // ===== 4. 不動産市場 =====
   if (m.housing_market) {
     var hm = m.housing_market;
-    html += '<div style="' + sectionStyle + '">';
-    html += '<div style="' + titleStyle + '">6. 不動産市場</div>';
-    html += '<table style="' + tableStyle + '">';
+    html += '<div style="' + S + '"><div style="' + T + '">4. 不動産市場</div>';
+    html += '<table style="' + TBL + '">';
     if (hm.used_home) {
-      html += '<tr><th style="' + thStyle + 'background:#dbeafe;" colspan="2">中古戸建</th></tr>';
-      html += row('平均価格', toMan(hm.used_home.avg_price) + '万円');
-      html += row('年間流通件数', formatNumber(hm.used_home.volume));
-      html += row('平均築年数', (hm.used_home.avg_age || '—') + '年');
+      html += '<tr><th style="' + SUB + '" colspan="2">中古戸建</th></tr>';
+      html += r('平均価格', toMan(hm.used_home.avg_price) + '万円');
+      html += r('年間流通件数', formatNumber(hm.used_home.volume));
+      html += r('平均築年数', (hm.used_home.avg_age || '—') + '年');
     }
     if (hm.renovation) {
-      html += '<tr><th style="' + thStyle + 'background:#dbeafe;" colspan="2">リフォーム市場</th></tr>';
-      html += row('市場規模', toOku(hm.renovation.market_size) + '億円');
-      html += row('平均工事費', toMan(hm.renovation.avg_cost) + '万円');
-      html += row('需要トレンド', hm.renovation.demand_trend || '—');
+      html += '<tr><th style="' + SUB + '" colspan="2">リフォーム市場</th></tr>';
+      html += r('市場規模', toOku(hm.renovation.market_size) + '億円');
+      html += r('平均工事費', toMan(hm.renovation.avg_cost) + '万円');
+      html += r('需要トレンド', hm.renovation.demand_trend || '—');
     }
     if (hm.condo_sale) {
-      html += '<tr><th style="' + thStyle + 'background:#dbeafe;" colspan="2">分譲マンション</th></tr>';
-      html += row('平均価格', toMan(hm.condo_sale.avg_price) + '万円');
-      html += row('年間供給戸数', formatNumber(hm.condo_sale.supply));
+      html += '<tr><th style="' + SUB + '" colspan="2">分譲マンション</th></tr>';
+      html += r('平均価格', toMan(hm.condo_sale.avg_price) + '万円');
+      html += r('年間供給戸数', formatNumber(hm.condo_sale.supply));
     }
     if (hm.condo_rental) {
-      html += '<tr><th style="' + thStyle + 'background:#dbeafe;" colspan="2">賃貸マンション</th></tr>';
-      html += row('平均家賃', formatNumber(hm.condo_rental.avg_rent) + '円/月');
-      html += row('空室率', (hm.condo_rental.vacancy_rate || '—') + '%');
+      html += '<tr><th style="' + SUB + '" colspan="2">賃貸マンション</th></tr>';
+      html += r('平均家賃', formatNumber(hm.condo_rental.avg_rent) + '円/月');
+      html += r('空室率', (hm.condo_rental.vacancy_rate || '—') + '%');
     }
+    html += '</table></div>';
+  }
+
+  // ===== 5. 土地相場 =====
+  if (m.land_price) {
+    var lp = m.land_price;
+    html += '<div style="' + S + '"><div style="' + T + '">5. 土地相場</div>';
+    html += '<table style="' + TBL + '">';
+    html += r('住宅地 坪単価', formatNumber(lp.residential_tsubo) + '円');
+    html += r('住宅地 ㎡単価', formatNumber(lp.residential_sqm) + '円');
+    html += r('商業地 ㎡単価', formatNumber(lp.commercial_sqm) + '円');
+    html += r('前年比', lp.yoy_change || '—');
+    html += '</table></div>';
+  }
+
+  // ===== 6. 新築住宅相場 =====
+  if (m.home_prices) {
+    var hp2 = m.home_prices;
+    html += '<div style="' + S + '"><div style="' + T + '">6. 新築住宅相場</div>';
+    html += '<table style="' + TBL + '">';
+    html += r('平均価格', toMan(hp2.avg_price) + '万円');
+    html += r('価格帯', hp2.price_range || '—');
+    html += r('目安年収', toMan(hp2.required_income) + '万円');
     html += '</table></div>';
   }
 
   // ===== 7. 競合分析 =====
   if (m.competition) {
-    var comp = m.competition;
-    html += '<div style="' + sectionStyle + '">';
-    html += '<div style="' + titleStyle + '">7. 競合分析</div>';
-    html += '<table style="' + tableStyle + '">';
-    html += row('工務店・HM数', formatNumber(comp.total_companies));
-    html += row('地場工務店', formatNumber(comp.local_builders));
-    html += row('大手HM支店', formatNumber(comp.major_hm));
-    html += row('飽和度', comp.saturation || '—');
+    var comp2 = m.competition;
+    html += '<div style="' + S + '"><div style="' + T + '">7. 競合分析</div>';
+    html += '<table style="' + TBL + '">';
+    html += r('工務店・HM数', formatNumber(comp2.total_companies));
+    html += r('地場工務店', formatNumber(comp2.local_builders));
+    html += r('大手HM支店', formatNumber(comp2.major_hm));
+    html += r('飽和度', comp2.saturation || '—');
     html += '</table>';
-    if (comp.top_companies && comp.top_companies.length > 0) {
-      html += '<div style="margin-top:6px; font-size:9px; color:#475569;">主要企業: ' + comp.top_companies.map(function(c) { return escapeHtml(c.name || c); }).join(', ') + '</div>';
+    if (comp2.top_companies && comp2.top_companies.length > 0) {
+      html += '<div style="margin-top:4px; font-size:8px; color:#475569;">主要企業: ' + comp2.top_companies.map(function(x) { return escapeHtml(x.name || x); }).join(', ') + '</div>';
     }
     html += '</div>';
   }
 
   // ===== 8. 潜在顧客 =====
   if (m.potential) {
-    var pot = m.potential;
-    html += '<div style="' + sectionStyle + '">';
-    html += '<div style="' + titleStyle + '">8. 潜在顧客試算</div>';
-    html += '<table style="' + tableStyle + '">';
-    html += row('30〜45歳世帯数', formatNumber(pot.target_households));
-    html += row('賃貸世帯数', formatNumber(pot.rental_households));
-    html += row('年間持ち家転換', formatNumber(pot.annual_converts));
-    html += row('1社あたり年間', formatNumber(pot.per_company));
+    var pot2 = m.potential;
+    html += '<div style="' + S + '"><div style="' + T + '">8. 潜在顧客試算</div>';
+    html += '<table style="' + TBL + '">';
+    html += r('30〜45歳世帯数', formatNumber(pot2.target_households));
+    html += r('賃貸世帯数', formatNumber(pot2.rental_households));
+    html += r('年間持ち家転換', formatNumber(pot2.annual_converts));
+    html += r('1社あたり年間', formatNumber(pot2.per_company));
     html += '</table>';
-    if (pot.ai_insight) {
-      html += '<div style="margin-top:6px; padding:6px 8px; background:#f0fdf4; border-radius:4px; font-size:9px; color:#166534;">' + escapeHtml(pot.ai_insight) + '</div>';
+    if (pot2.ai_insight) {
+      html += '<div style="margin-top:4px; padding:4px 6px; background:#f0fdf4; border-radius:3px; font-size:8.5px; color:#166534;">' + escapeHtml(pot2.ai_insight) + '</div>';
     }
     html += '</div>';
   }
-
-  // ===== ページ区切り =====
-  html += '<div style="page-break-before:always;"></div>';
 
   // ===== 9. 広告効果分析 =====
   if (m.advertising) {
-    var ad = m.advertising;
-    html += '<div style="' + sectionStyle + '">';
-    html += '<div style="' + titleStyle + '">9. 広告効果分析</div>';
-    if (ad.age_distribution) {
-      html += '<table style="' + tableStyle + '">';
-      html += row('30歳未満', (ad.age_distribution.under_30_pct || '—') + '%');
-      html += row('30〜49歳', (ad.age_distribution.age_30_49_pct || '—') + '%');
-      html += row('50〜64歳', (ad.age_distribution.age_50_64_pct || '—') + '%');
-      html += row('65歳以上', (ad.age_distribution.over_65_pct || '—') + '%');
+    var ad2 = m.advertising;
+    html += '<div style="' + S + '"><div style="' + T + '">9. 広告効果分析</div>';
+    if (ad2.age_distribution) {
+      html += '<div style="font-weight:600; font-size:9px; margin-bottom:3px;">年齢構成</div>';
+      html += '<table style="' + TBL + '">';
+      html += r('30歳未満', (ad2.age_distribution.under_30_pct || '—') + '%');
+      html += r('30〜49歳', (ad2.age_distribution.age_30_49_pct || '—') + '%');
+      html += r('50〜64歳', (ad2.age_distribution.age_50_64_pct || '—') + '%');
+      html += r('65歳以上', (ad2.age_distribution.over_65_pct || '—') + '%');
       html += '</table>';
     }
-    if (ad.channels && ad.channels.length > 0) {
-      html += '<div style="margin-top:8px; font-weight:600; font-size:10px;">推奨チャネル</div>';
-      html += '<table style="' + tableStyle + ' margin-top:4px;">';
-      html += '<tr><th style="' + thStyle + 'width:25%;">チャネル</th><th style="' + thStyle + 'width:15%;">スコア</th><th style="' + thStyle + 'width:60%;">理由</th></tr>';
-      ad.channels.forEach(function(ch) {
-        html += '<tr><td style="' + tdStyle + '">' + escapeHtml(ch.name || '') + '</td>';
-        html += '<td style="' + tdStyle + 'text-align:center;">' + (ch.score || '') + '</td>';
-        html += '<td style="' + tdStyle + 'font-size:9px;">' + escapeHtml(ch.reason || '') + '</td></tr>';
+    if (ad2.channels && ad2.channels.length > 0) {
+      html += '<div style="margin-top:6px; font-weight:600; font-size:9px; margin-bottom:3px;">推奨チャネル</div>';
+      html += '<table style="' + TBL + '">';
+      html += '<tr><th style="' + TH + 'width:25%;">チャネル</th><th style="' + TH + 'width:12%;">スコア</th><th style="' + TH + 'width:63%;">理由</th></tr>';
+      ad2.channels.forEach(function(ch) {
+        html += '<tr><td style="' + TD + '">' + escapeHtml(ch.name || '') + '</td>';
+        html += '<td style="' + TD + 'text-align:center;">' + (ch.score || '') + '</td>';
+        html += '<td style="' + TD + 'font-size:8.5px;">' + escapeHtml(ch.reason || '') + '</td></tr>';
       });
       html += '</table>';
     }
-    if (ad.strategy_summary) {
-      html += '<div style="margin-top:8px; padding:6px 8px; background:#eff6ff; border-radius:4px; font-size:9px; color:#1e40af;">' + escapeHtml(ad.strategy_summary) + '</div>';
+    if (ad2.strategy_summary) {
+      html += '<div style="margin-top:4px; padding:4px 6px; background:#eff6ff; border-radius:3px; font-size:8.5px; color:#1e40af;">' + escapeHtml(ad2.strategy_summary) + '</div>';
     }
-    html += '</div>';
-  }
-
-  // ===== 10. AI市場分析サマリー =====
-  if (m.market_summary) {
-    html += '<div style="' + sectionStyle + '">';
-    html += '<div style="' + titleStyle + '">10. AI市場分析サマリー</div>';
-    html += '<div style="font-size:10px; color:#334155; white-space:pre-wrap;">' + escapeHtml(m.market_summary) + '</div>';
     html += '</div>';
   }
 
   // ===== フッター =====
-  html += '<div style="text-align:center; margin-top:15px; padding-top:8px; border-top:1px solid #e2e8f0;">';
-  html += '<div style="font-size:8px; color:#94a3b8;">AI不動産市場レポート v1.5 - Powered by AI + 政府統計データ | ' + dateStr + '</div>';
+  html += '<div style="text-align:center; margin-top:10px; padding-top:6px; border-top:1px solid #e2e8f0;">';
+  html += '<div style="font-size:7.5px; color:#94a3b8;">AI不動産市場レポート v1.5 | Powered by AI + 政府統計データ | ' + dateStr + '</div>';
   html += '</div>';
 
   container.innerHTML = html;
@@ -1473,12 +1466,12 @@ async function exportPDF() {
 
   try {
     await html2pdf().set({
-      margin: 0,
+      margin: [10, 15, 10, 15],
       filename: '不動産市場分析_' + area.fullLabel + '_' + new Date().toISOString().slice(0, 10) + '.pdf',
       image: { type: 'jpeg', quality: 0.95 },
-      html2canvas: { scale: 2, useCORS: true, logging: false },
+      html2canvas: { scale: 2, useCORS: true, logging: false, windowWidth: container.scrollWidth },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['css', 'legacy'], before: '[style*="page-break-before"]' }
+      pagebreak: { mode: ['avoid-all', 'css'] }
     }).from(container).save();
   } catch (e) {
     alert('PDF生成エラー: ' + e.message);
@@ -1582,7 +1575,8 @@ function exportExcel() {
 
   var channels = (m.advertising || {}).channels || [];
   channels.forEach(function(ch) {
-    summaryData.push([ch.name || '', 'スコア: ' + (ch.score || ''), (ch.platforms || []).join(', '), ch.reason || '']);
+    var plat = ch.platforms || '';
+    summaryData.push([ch.name || '', 'スコア: ' + (ch.score || ''), Array.isArray(plat) ? plat.join(', ') : String(plat), ch.reason || '']);
   });
   summaryData.push(['最も推奨', (m.advertising || {}).best_channel || '']);
   summaryData.push(['戦略サマリー', (m.advertising || {}).strategy_summary || '']);
@@ -1601,6 +1595,25 @@ function exportExcel() {
 
 function cancelPurchasePrompt() {
   document.getElementById('purchase-prompt').style.display = 'none';
+  // 閉じた後も再決済できるフローティングボタンを表示
+  var floatBtn = document.getElementById('purchase-float-btn');
+  if (!floatBtn) {
+    floatBtn = document.createElement('button');
+    floatBtn.id = 'purchase-float-btn';
+    floatBtn.className = 'purchase-float-btn';
+    floatBtn.textContent = '🔓 完全版を購入 ¥150';
+    floatBtn.onclick = function() {
+      floatBtn.style.display = 'none';
+      document.getElementById('purchase-prompt').style.display = 'flex';
+    };
+    document.body.appendChild(floatBtn);
+  }
+  floatBtn.style.display = 'block';
+}
+
+function hidePurchaseFloat() {
+  var floatBtn = document.getElementById('purchase-float-btn');
+  if (floatBtn) floatBtn.style.display = 'none';
 }
 
 // ---- UI Helpers ----
