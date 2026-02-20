@@ -7,6 +7,7 @@ compatibility_date = "2024-09-25"
 # --------------------------------------------------------------------------
 [vars]
 STRIPE_PRICE_ID = "price_1T2vcc1TYnppSLqN3H8P4BXO"
+SUPABASE_URL = "https://ypyrjsdotkeyvzequdez.supabase.co"
 
 # --------------------------------------------------------------------------
 # KV Namespace バインディング

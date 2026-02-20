@@ -15,7 +15,9 @@
  *   ESTAT_APP_ID
  *   STRIPE_SECRET_KEY
  *   STRIPE_WEBHOOK_SECRET
+ *   SUPABASE_SERVICE_KEY
  *   STRIPE_PRICE_ID (wrangler.toml [vars] に設定可)
+ *   SUPABASE_URL (wrangler.toml [vars] に設定可)
  *
  * KV binding:
  *   PURCHASES
@@ -254,6 +256,38 @@ async function handleEstatQuery(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// Supabase helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Supabase REST API にリクエストを送る。
+ *
+ * @param {string} path - テーブルパス (例: "/purchases")
+ * @param {string} method - HTTP メソッド
+ * @param {object|null} body - JSON ボディ
+ * @param {object} env
+ * @param {object} [options] - 追加ヘッダー等
+ * @returns {Promise<{ok: boolean, status: number, data: any}>}
+ */
+async function supabaseRequest(path, method, body, env, options = {}) {
+  const url = `${env.SUPABASE_URL}/rest/v1${path}`;
+  const headers = {
+    "apikey": env.SUPABASE_SERVICE_KEY,
+    "Authorization": `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+    "Content-Type": "application/json",
+    "Prefer": options.prefer || "return=representation",
+    ...options.headers,
+  };
+
+  const fetchOptions = { method, headers };
+  if (body) fetchOptions.body = JSON.stringify(body);
+
+  const response = await fetch(url, fetchOptions);
+  const data = await response.json().catch(() => null);
+  return { ok: response.ok, status: response.status, data };
+}
+
+// ---------------------------------------------------------------------------
 // Stripe helpers
 // ---------------------------------------------------------------------------
 
@@ -314,7 +348,7 @@ async function handleCheckout(request, env) {
     return errorResponse("リクエストボディが不正な JSON です", 400);
   }
 
-  const { area, email, success_url, cancel_url } = body;
+  const { area, area_code, user_id, email, success_url, cancel_url } = body;
 
   if (!area || typeof area !== "string" || area.trim() === "") {
     return errorResponse("area フィールドは必須です", 400);
@@ -336,6 +370,10 @@ async function handleCheckout(request, env) {
   params.set("cancel_url", cancelUrl);
   params.set("metadata[area]", area.trim());
   params.set("metadata[purchased_at]", timestamp);
+
+  // ユーザーID・エリアコードをメタデータに追加（Supabase DB連携用）
+  if (user_id) params.set("metadata[user_id]", user_id);
+  if (area_code) params.set("metadata[area_code]", area_code);
 
   // メールアドレスが提供された場合は事前入力
   if (email && typeof email === "string" && email.includes("@")) {
@@ -497,6 +535,9 @@ async function handleWebhook(request, env, ctx) {
 
     const sessionId = session.id;
     const area = session.metadata?.area ?? "";
+    const areaCode = session.metadata?.area_code ?? "";
+    const userId = session.metadata?.user_id ?? null;
+    const paymentIntentId = session.payment_intent ?? null;
     const purchasedAt = session.metadata?.purchased_at
       ? parseInt(session.metadata.purchased_at, 10)
       : Math.floor(Date.now() / 1000);
@@ -510,23 +551,20 @@ async function handleWebhook(request, env, ctx) {
       purchased_at_iso: new Date(purchasedAt * 1000).toISOString(),
     };
 
-    // KV への書き込みはバックグラウンドで実行
+    // KV + Supabase DB への書き込みはバックグラウンドで実行
     ctx.waitUntil(
       (async () => {
+        // 1. KV に保存（既存処理）
         try {
-          // purchase:{session_id} キーで保存（TTL なし、永続）
           await env.PURCHASES.put(
             `purchase:${sessionId}`,
             JSON.stringify(purchaseRecord)
           );
 
-          // メールがある場合は user:{email} キーにも購入リストを追記
           if (email) {
             const userKey = `user:${email}`;
             const existing = await env.PURCHASES.get(userKey, { type: "json" });
             const userRecord = existing ?? { purchases: [] };
-
-            // 重複チェック（同一 session_id は追加しない）
             const alreadyExists = userRecord.purchases.some(
               (p) => p.session_id === sessionId
             );
@@ -541,8 +579,27 @@ async function handleWebhook(request, env, ctx) {
             }
           }
         } catch (err) {
-          // KV エラーは Stripe へ 200 を返した後にログ出力
           console.error("KV 書き込みエラー:", err.message);
+        }
+
+        // 2. Supabase DB に保存（user_id がある場合のみ）
+        if (userId && env.SUPABASE_URL && env.SUPABASE_SERVICE_KEY) {
+          try {
+            await supabaseRequest("/purchases", "POST", {
+              user_id: userId,
+              area_code: areaCode || "unknown",
+              area_name: area,
+              stripe_session_id: sessionId,
+              stripe_payment_intent_id: paymentIntentId,
+              amount: 150,
+            }, env, {
+              // 重複を無視（同一 stripe_session_id は UNIQUE 制約）
+              headers: { "Prefer": "return=minimal" },
+              prefer: "return=minimal",
+            });
+          } catch (err) {
+            console.error("Supabase 書き込みエラー:", err.message);
+          }
         }
       })()
     );
@@ -622,8 +679,11 @@ async function handlePurchases(request, env) {
       return jsonResponse({ purchased: false, payment_status: stripeSession.payment_status });
     }
 
-    // KV に見つからなかったが Stripe では paid → KV に保存しておく
+    // KV に見つからなかったが Stripe では paid → KV + DB に保存しておく
     const area = stripeSession.metadata?.area ?? "";
+    const areaCode = stripeSession.metadata?.area_code ?? "";
+    const userId = stripeSession.metadata?.user_id ?? null;
+    const paymentIntentId = stripeSession.payment_intent ?? null;
     const purchasedAt = stripeSession.metadata?.purchased_at
       ? parseInt(stripeSession.metadata.purchased_at, 10)
       : Math.floor(Date.now() / 1000);
@@ -638,11 +698,30 @@ async function handlePurchases(request, env) {
       purchased_at_iso: new Date(purchasedAt * 1000).toISOString(),
     };
 
-    // 非同期で KV に保存（レスポンスはブロックしない）
+    // KV に保存
     try {
       await env.PURCHASES.put(`purchase:${sessionId}`, JSON.stringify(kvRecord));
     } catch (err) {
       console.error("KV フォールバック書き込みエラー:", err.message);
+    }
+
+    // Supabase DB にも保存（user_id がある場合）
+    if (userId && env.SUPABASE_URL && env.SUPABASE_SERVICE_KEY) {
+      try {
+        await supabaseRequest("/purchases", "POST", {
+          user_id: userId,
+          area_code: areaCode || "unknown",
+          area_name: area,
+          stripe_session_id: sessionId,
+          stripe_payment_intent_id: paymentIntentId,
+          amount: 150,
+        }, env, {
+          headers: { "Prefer": "return=minimal" },
+          prefer: "return=minimal",
+        });
+      } catch (err) {
+        console.error("Supabase フォールバック書き込みエラー:", err.message);
+      }
     }
   }
 
