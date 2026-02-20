@@ -4,8 +4,9 @@
 // ========================================
 
 // ---- Config ----
-var WORKER_BASE = 'https://ai-fudosan-api.ai-fudosan.workers.dev';
-var STRIPE_PUBLISHABLE_KEY = 'pk_live_51SIP0L1TYnppSLqN5jNTGQaAHg0qxBp2V7RZjSaFwCKxQiQlhk1eoLWpYLmZJRfQMvqYVkJdP1TXXKz3B5Gg6J5X00FJcg6Rv1';
+var WORKER_BASE = 'https://house-search-proxy.ai-fudosan.workers.dev';
+// テストモード（本番移行時にliveキーに切り替え）
+var STRIPE_PUBLISHABLE_KEY = 'pk_test_51SIP0L1TYnppSLqNtest'; // TODO: Stripeダッシュボードからテスト公開キーを設定
 
 // ---- Prefecture Codes ----
 var PREFECTURE_CODES = {
@@ -47,7 +48,87 @@ var progressLogContent = document.getElementById('progress-log-content');
   }
   // 購入履歴ボタン
   document.getElementById('history-btn').addEventListener('click', showHistoryModal);
+
+  // オートコンプリート初期化
+  initAutocomplete();
 })();
+
+// ---- Autocomplete ----
+function initAutocomplete() {
+  var input = document.getElementById('area-input');
+  var dropdown = document.getElementById('autocomplete-dropdown');
+  var selectedIdx = -1;
+  var currentItems = [];
+
+  input.addEventListener('input', function() {
+    var query = input.value.trim();
+    if (query.length < 1) {
+      dropdown.style.display = 'none';
+      return;
+    }
+
+    currentItems = searchArea(query).slice(0, 8);
+    selectedIdx = -1;
+
+    if (currentItems.length === 0) {
+      dropdown.style.display = 'none';
+      return;
+    }
+
+    dropdown.innerHTML = '';
+    currentItems.forEach(function(area, idx) {
+      var item = document.createElement('div');
+      item.className = 'autocomplete-item';
+      item.innerHTML = '<span class="autocomplete-item__icon">' + (area.type === 'prefecture' ? '🗾' : '📍') + '</span>' +
+        '<div><div class="autocomplete-item__name">' + escapeHtml(area.fullLabel) + '</div>' +
+        '<div class="autocomplete-item__type">' + (area.type === 'prefecture' ? '都道府県' : '市区町村') + '</div></div>';
+      item.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        selectItem(area);
+      });
+      dropdown.appendChild(item);
+    });
+    dropdown.style.display = 'block';
+  });
+
+  input.addEventListener('keydown', function(e) {
+    if (dropdown.style.display !== 'block' || currentItems.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectedIdx = Math.min(selectedIdx + 1, currentItems.length - 1);
+      highlightItem();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectedIdx = Math.max(selectedIdx - 1, -1);
+      highlightItem();
+    } else if (e.key === 'Enter') {
+      if (selectedIdx >= 0 && selectedIdx < currentItems.length) {
+        e.preventDefault();
+        selectItem(currentItems[selectedIdx]);
+      }
+    } else if (e.key === 'Escape') {
+      dropdown.style.display = 'none';
+    }
+  });
+
+  input.addEventListener('blur', function() {
+    setTimeout(function() { dropdown.style.display = 'none'; }, 150);
+  });
+
+  function highlightItem() {
+    var items = dropdown.querySelectorAll('.autocomplete-item');
+    items.forEach(function(el, i) {
+      el.classList.toggle('is-selected', i === selectedIdx);
+    });
+  }
+
+  function selectItem(area) {
+    input.value = area.fullLabel;
+    dropdown.style.display = 'none';
+    runAreaAnalysis(area);
+  }
+}
 
 // ---- Gemini API via Worker Proxy ----
 var _lastGeminiCall = 0;

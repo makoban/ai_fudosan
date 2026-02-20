@@ -1909,6 +1909,61 @@ body {
 .log-item--error { color: #ef4444; }
 
 /* ========================================
+   ai_fudosan - Autocomplete Dropdown
+   ======================================== */
+.search__autocomplete {
+  position: relative;
+  flex: 1;
+}
+
+.autocomplete-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+  max-height: 340px;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.autocomplete-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.autocomplete-item:hover,
+.autocomplete-item.is-selected {
+  background: rgba(99, 102, 241, 0.15);
+}
+
+.autocomplete-item__icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.autocomplete-item__name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.autocomplete-item__type {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+/* ========================================
    ai_fudosan - Mobile Responsive additions
    ======================================== */
 @media (max-width: 768px) {

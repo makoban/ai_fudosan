@@ -49,13 +49,16 @@
         <div class="search-card">
           <label class="search__label" for="area-input">分析したいエリア名を入力</label>
           <div class="search__input-wrap">
-            <input
-              type="text"
-              id="area-input"
-              class="search__input"
-              placeholder="例: 渋谷区、岡山市、北海道..."
-              autocomplete="off"
-            >
+            <div class="search__autocomplete">
+              <input
+                type="text"
+                id="area-input"
+                class="search__input"
+                placeholder="例: 渋谷区、岡山市、北海道..."
+                autocomplete="off"
+              >
+              <div id="autocomplete-dropdown" class="autocomplete-dropdown"></div>
+            </div>
             <button id="analyze-btn" class="search__btn" onclick="startAnalysis()">
               <span class="btn-text">🔍 分析開始</span>
               <span class="spinner"></span>
@@ -131,13 +134,8 @@
         </div>
       </div>
 
-      <!-- Detailed Log Area -->
-      <div class="progress__logs">
-        <div class="progress__logs-header">詳細ログ</div>
-        <div id="progress-log-content" class="progress__logs-content">
-          <div class="log-item">待機中...</div>
-        </div>
-      </div>
+      <!-- progress log hidden in production -->
+      <div id="progress-log-content" style="display:none;"></div>
     </div>
   </section>
 
