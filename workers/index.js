@@ -566,6 +566,15 @@ async function handleWebhook(request, env, ctx) {
       return errorResponse("イベントデータが不正です", 400);
     }
 
+    // payment_status が "paid" の場合のみ処理（HIGH-02修正）
+    if (session.payment_status !== "paid") {
+      console.log(`[Webhook] payment_status=${session.payment_status} のためスキップ`);
+      return new Response(JSON.stringify({ received: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     const sessionId = session.id;
     const area = session.metadata?.area ?? "";
     const areaCode = session.metadata?.area_code ?? "";
@@ -665,6 +674,12 @@ async function handlePurchases(request, env) {
   }
   if (!env.PURCHASES) {
     return errorResponse("KV バインディング PURCHASES が設定されていません", 500);
+  }
+
+  // JWT認証ゲート（CRITICAL-03修正）
+  const { user_id: requestingUserId } = await getUserFromJWT(request, env);
+  if (!requestingUserId) {
+    return errorResponse("認証が必要です", 401);
   }
 
   const url = new URL(request.url);
@@ -789,6 +804,15 @@ async function handleSaveAnalysisData(request, env) {
   const { area_name, analysis_data } = body;
   if (!area_name || !analysis_data) {
     return errorResponse("area_name と analysis_data は必須です", 400);
+  }
+
+  // 入力バリデーション（CRITICAL-05修正）
+  if (typeof area_name !== 'string' || area_name.length > 100 || /[&=<>'"\\]/.test(area_name)) {
+    return errorResponse("area_name に使用できない文字が含まれています", 400);
+  }
+  const dataStr = JSON.stringify(analysis_data);
+  if (dataStr.length > 500000) {
+    return errorResponse("analysis_data が大きすぎます", 413);
   }
 
   const result = await supabaseRequest(

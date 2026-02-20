@@ -1,5 +1,5 @@
 // ========================================
-// AI不動産市場レポート v1.5
+// AI不動産市場レポート v1.6
 // エリア入力 → 政府統計 + AI分析 → プレビュー/課金
 // ========================================
 
@@ -30,6 +30,7 @@ var PREFECTURE_CODES = {
 var analysisData = null;
 var currentArea = null;
 var isPurchased = false;
+var _analysisRunning = false;
 
 // ---- DOM References ----
 var areaInput = document.getElementById('area-input');
@@ -41,6 +42,8 @@ var resultsContent = document.getElementById('results-content');
 var progressLogContent = document.getElementById('progress-log-content');
 
 // ---- On Load: Check for Stripe redirect ----
+var _pendingVerifySessionId = null;
+
 (function checkPurchaseReturn() {
   var params = new URLSearchParams(window.location.search);
   var sessionId = params.get('session_id');
@@ -54,8 +57,8 @@ var progressLogContent = document.getElementById('progress-log-content');
         currentArea = JSON.parse(savedArea);
       }
     } catch (e) { /* ignore */ }
-    // Stripe Checkoutから戻ってきた
-    verifyPurchase(sessionId);
+    // 認証完了を待ってからverifyPurchaseを実行（CRITICAL-02修正）
+    _pendingVerifySessionId = sessionId;
     // URLをクリーンアップ
     window.history.replaceState({}, '', window.location.pathname);
   }
@@ -167,6 +170,12 @@ function initSupabase() {
           _pendingCheckout = false;
           _doCheckout();
         }
+      }
+      // 認証完了後にStripe決済戻りの購入確認を実行（CRITICAL-02修正）
+      if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN') && _pendingVerifySessionId) {
+        var sid = _pendingVerifySessionId;
+        _pendingVerifySessionId = null;
+        verifyPurchase(sid);
       }
     });
   } else {
@@ -504,6 +513,8 @@ function showAreaSelectModal(candidates) {
 
 // ---- Main Analysis ----
 async function runAreaAnalysis(area) {
+  if (_analysisRunning) return;
+  _analysisRunning = true;
   currentArea = area;
   isPurchased = await isAreaPurchasedAsync(area.fullLabel);
 
@@ -515,6 +526,7 @@ async function runAreaAnalysis(area) {
       document.getElementById('purchase-prompt').style.display = 'none';
       renderResults(analysisData, true);
       showResults();
+      _analysisRunning = false;
       return;
     }
   }
@@ -604,6 +616,7 @@ async function runAreaAnalysis(area) {
     showError(err.message);
   } finally {
     setLoading(false);
+    _analysisRunning = false;
   }
 }
 
@@ -824,43 +837,42 @@ function renderResults(data, purchased) {
 
     if (hm.used_home) {
       var uh = hm.used_home;
-      uh.avg_price = toMan(uh.avg_price);
+      var uhPrice = toMan(uh.avg_price);
       html += '<div class="sub-card"><div class="sub-card__title">🏚️ 中古戸建</div>' +
         '<table class="data-table">' +
-        '<tr><th>平均価格</th><td>' + (uh.avg_price ? formatNumber(uh.avg_price) + ' 万円' : '—') + '</td></tr>' +
+        '<tr><th>平均価格</th><td>' + (uhPrice ? formatNumber(uhPrice) + ' 万円' : '—') + '</td></tr>' +
         '<tr><th>年間流通件数</th><td>' + (uh.volume ? formatNumber(uh.volume) + '件' : '—') + '</td></tr>' +
         '<tr><th>平均築年数</th><td>' + (uh.avg_age ? uh.avg_age + '年' : '—') + '</td></tr>' +
         '</table></div>';
     }
     if (hm.renovation) {
       var rv = hm.renovation;
-      rv.market_size = toOku(rv.market_size);
-      rv.avg_cost = toMan(rv.avg_cost);
+      var rvSize = toOku(rv.market_size);
+      var rvCost = toMan(rv.avg_cost);
       html += '<div class="sub-card"><div class="sub-card__title">🔧 リフォーム市場</div>' +
         '<table class="data-table">' +
-        '<tr><th>市場規模</th><td>' + (rv.market_size ? formatNumber(rv.market_size) + ' 億円' : '—') + '</td></tr>' +
-        '<tr><th>平均工事費</th><td>' + (rv.avg_cost ? formatNumber(rv.avg_cost) + ' 万円' : '—') + '</td></tr>' +
+        '<tr><th>市場規模</th><td>' + (rvSize ? formatNumber(rvSize) + ' 億円' : '—') + '</td></tr>' +
+        '<tr><th>平均工事費</th><td>' + (rvCost ? formatNumber(rvCost) + ' 万円' : '—') + '</td></tr>' +
         '<tr><th>需要トレンド</th><td>' + (rv.demand_trend || '—') + '</td></tr>' +
         '</table></div>';
     }
     if (hm.condo_sale) {
       var cs = hm.condo_sale;
-      cs.avg_price = toMan(cs.avg_price);
-      cs.avg_sqm_price = toMan(cs.avg_sqm_price);
+      var csPrice = toMan(cs.avg_price);
+      var csSqm = toMan(cs.avg_sqm_price);
       html += '<div class="sub-card"><div class="sub-card__title">🏢 分譲マンション</div>' +
         '<table class="data-table">' +
-        '<tr><th>平均価格</th><td>' + (cs.avg_price ? formatNumber(cs.avg_price) + ' 万円' : '—') + '</td></tr>' +
+        '<tr><th>平均価格</th><td>' + (csPrice ? formatNumber(csPrice) + ' 万円' : '—') + '</td></tr>' +
         '<tr><th>年間供給戸数</th><td>' + (cs.supply ? formatNumber(cs.supply) + '戸' : '—') + '</td></tr>' +
-        '<tr><th>平均㎡単価</th><td>' + (cs.avg_sqm_price ? formatNumber(cs.avg_sqm_price) + ' 万円/㎡' : '—') + '</td></tr>' +
+        '<tr><th>平均㎡単価</th><td>' + (csSqm ? formatNumber(csSqm) + ' 万円/㎡' : '—') + '</td></tr>' +
         '</table></div>';
     }
     if (hm.condo_rental) {
       var cr = hm.condo_rental;
-      // 家賃が万円単位で来た場合（例: 8.5 → 85000円）
-      if (cr.avg_rent && cr.avg_rent < 1000) cr.avg_rent = Math.round(cr.avg_rent * 10000);
+      var crRent = (cr.avg_rent && cr.avg_rent < 1000) ? Math.round(cr.avg_rent * 10000) : cr.avg_rent;
       html += '<div class="sub-card"><div class="sub-card__title">🏬 賃貸マンション</div>' +
         '<table class="data-table">' +
-        '<tr><th>平均家賃</th><td>' + (cr.avg_rent ? formatNumber(cr.avg_rent) + '円/月' : '—') + '</td></tr>' +
+        '<tr><th>平均家賃</th><td>' + (crRent ? formatNumber(crRent) + '円/月' : '—') + '</td></tr>' +
         '<tr><th>空室率</th><td>' + (cr.vacancy_rate ? cr.vacancy_rate + '%' : '—') + '</td></tr>' +
         '<tr><th>賃貸供給数</th><td>' + (cr.supply ? formatNumber(cr.supply) + '戸' : '—') + '</td></tr>' +
         '</table></div>';
@@ -871,19 +883,19 @@ function renderResults(data, purchased) {
   // ④ 土地相場
   if (m.land_price) {
     var lp = m.land_price;
-    // 円単位で来るはず。万円単位で来た場合（<1000）は円に変換
-    if (lp.residential_sqm && lp.residential_sqm < 1000) lp.residential_sqm = Math.round(lp.residential_sqm * 10000);
-    if (lp.residential_tsubo && lp.residential_tsubo < 3000) lp.residential_tsubo = Math.round(lp.residential_tsubo * 10000);
-    if (lp.commercial_sqm && lp.commercial_sqm < 1000) lp.commercial_sqm = Math.round(lp.commercial_sqm * 10000);
+    // 円単位で来るはず。万円単位で来た場合（<1000）は円に変換（ローカル変数で元データを保持）
+    var lpResSqm = (lp.residential_sqm && lp.residential_sqm < 1000) ? Math.round(lp.residential_sqm * 10000) : lp.residential_sqm;
+    var lpResTsubo = (lp.residential_tsubo && lp.residential_tsubo < 3000) ? Math.round(lp.residential_tsubo * 10000) : lp.residential_tsubo;
+    var lpComSqm = (lp.commercial_sqm && lp.commercial_sqm < 1000) ? Math.round(lp.commercial_sqm * 10000) : lp.commercial_sqm;
     html += '<div class="result-card' + paidClass + '" data-section="paid">' +
       '<div class="result-card__header"><div class="result-card__icon">🗺️</div>' +
       '<div><div class="result-card__title">④ 土地相場</div>' +
       '<div class="result-card__subtitle">' + (purchased ? '' : '<span class="badge-paid">有料</span>') + '</div></div></div>' +
       '<div class="result-card__body">' + paidOverlay +
       '<table class="data-table">' +
-      '<tr><th>住宅地 坪単価</th><td><span class="highlight">' + (lp.residential_tsubo ? formatNumber(lp.residential_tsubo) + ' 円/坪' : '—') + '</span></td></tr>' +
-      '<tr><th>住宅地 ㎡単価</th><td>' + formatNumber(lp.residential_sqm) + ' 円/㎡</td></tr>' +
-      '<tr><th>商業地 ㎡単価</th><td>' + formatNumber(lp.commercial_sqm) + ' 円/㎡</td></tr>' +
+      '<tr><th>住宅地 坪単価</th><td><span class="highlight">' + (lpResTsubo ? formatNumber(lpResTsubo) + ' 円/坪' : '—') + '</span></td></tr>' +
+      '<tr><th>住宅地 ㎡単価</th><td>' + formatNumber(lpResSqm) + ' 円/㎡</td></tr>' +
+      '<tr><th>商業地 ㎡単価</th><td>' + formatNumber(lpComSqm) + ' 円/㎡</td></tr>' +
       '<tr><th>前年比</th><td>' + (lp.yoy_change || '—') + '</td></tr>' +
       '</table></div></div>';
   }
@@ -1026,9 +1038,15 @@ async function _doCheckout() {
   // 決済リダイレクト前に分析データを保存（戻ってきた時に復元するため）
   if (analysisData) {
     try {
-      sessionStorage.setItem('ai_fudosan_pendingAnalysis', JSON.stringify(analysisData));
+      var serialized = JSON.stringify(analysisData);
+      sessionStorage.setItem('ai_fudosan_pendingAnalysis', serialized);
       sessionStorage.setItem('ai_fudosan_pendingArea', JSON.stringify(currentArea));
-    } catch (e) { /* sessionStorage full or unavailable */ }
+    } catch (e) {
+      console.error('[Checkout] sessionStorage保存失敗:', e);
+      if (!confirm('分析データの一時保存に失敗しました。決済後は履歴からレポートを再表示できます。続行しますか？')) {
+        return;
+      }
+    }
   }
 
   var btn = document.getElementById('purchase-btn');
@@ -1058,9 +1076,9 @@ async function _doCheckout() {
     var data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Checkout作成エラー');
 
-    // Stripe Checkoutにリダイレクト
-    var stripe = Stripe(STRIPE_PUBLISHABLE_KEY);
-    await stripe.redirectToCheckout({ sessionId: data.session_id });
+    // Stripe CheckoutページへリダイレクトWorkerが返すURLを直接使用）
+    if (!data.url) throw new Error('Checkout URLが取得できませんでした');
+    window.location.href = data.url;
 
   } catch (err) {
     alert('決済エラー: ' + err.message);
@@ -1530,9 +1548,9 @@ function exportExcel() {
     ['前年比', (m.land_price || {}).yoy_change || ''],
     [],
     ['⑤ 新築住宅相場'],
-    ['平均価格(万円)', (m.home_prices || {}).avg_price || ''],
+    ['平均価格(万円)', (m.home_prices || {}).avg_price ? toMan((m.home_prices || {}).avg_price) : ''],
     ['価格帯', (m.home_prices || {}).price_range || ''],
-    ['目安年収(万円)', (m.home_prices || {}).required_income || ''],
+    ['目安年収(万円)', (m.home_prices || {}).required_income ? toMan((m.home_prices || {}).required_income) : ''],
     [],
     ['⑥ 競合分析'],
     ['工務店・HM数', (m.competition || {}).total_companies || ''],
@@ -1547,17 +1565,17 @@ function exportExcel() {
     [],
     ['⑦ 不動産市場（中古・リフォーム・マンション）'],
     ['--- 中古戸建 ---'],
-    ['平均価格(万円)', ((m.housing_market || {}).used_home || {}).avg_price || ''],
+    ['平均価格(万円)', ((m.housing_market || {}).used_home || {}).avg_price ? toMan(((m.housing_market || {}).used_home || {}).avg_price) : ''],
     ['年間流通件数', ((m.housing_market || {}).used_home || {}).volume || ''],
     ['平均築年数(年)', ((m.housing_market || {}).used_home || {}).avg_age || ''],
     ['--- リフォーム市場 ---'],
-    ['市場規模(億円)', ((m.housing_market || {}).renovation || {}).market_size || ''],
-    ['平均工事費(万円)', ((m.housing_market || {}).renovation || {}).avg_cost || ''],
+    ['市場規模(億円)', ((m.housing_market || {}).renovation || {}).market_size ? toOku(((m.housing_market || {}).renovation || {}).market_size) : ''],
+    ['平均工事費(万円)', ((m.housing_market || {}).renovation || {}).avg_cost ? toMan(((m.housing_market || {}).renovation || {}).avg_cost) : ''],
     ['需要トレンド', ((m.housing_market || {}).renovation || {}).demand_trend || ''],
     ['--- 分譲マンション ---'],
-    ['平均価格(万円)', ((m.housing_market || {}).condo_sale || {}).avg_price || ''],
+    ['平均価格(万円)', ((m.housing_market || {}).condo_sale || {}).avg_price ? toMan(((m.housing_market || {}).condo_sale || {}).avg_price) : ''],
     ['年間供給戸数', ((m.housing_market || {}).condo_sale || {}).supply || ''],
-    ['平均㎡単価(万円)', ((m.housing_market || {}).condo_sale || {}).avg_sqm_price || ''],
+    ['平均㎡単価(万円)', ((m.housing_market || {}).condo_sale || {}).avg_sqm_price ? toMan(((m.housing_market || {}).condo_sale || {}).avg_sqm_price) : ''],
     ['--- 賃貸マンション ---'],
     ['平均家賃(円/月)', ((m.housing_market || {}).condo_rental || {}).avg_rent || ''],
     ['空室率(%)', ((m.housing_market || {}).condo_rental || {}).vacancy_rate || ''],
@@ -1621,11 +1639,13 @@ function resetAll() {
   analysisData = null;
   currentArea = null;
   isPurchased = false;
+  _analysisRunning = false;
   areaInput.value = '';
   hideResults();
   hideProgress();
   hideError();
   document.getElementById('purchase-prompt').style.display = 'none';
+  hidePurchaseFloat();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -1690,8 +1710,10 @@ function highlightMatch(text, query) {
 }
 
 function formatNumber(num) {
-  if (!num && num !== 0) return '—';
-  return Number(num).toLocaleString('ja-JP');
+  if (num === null || num === undefined || num === '') return '—';
+  var n = Number(num);
+  if (isNaN(n)) return '—';
+  return n.toLocaleString('ja-JP');
 }
 
 // ---- area-database.js の searchArea 関数（AREA_DATABASEを検索）----
