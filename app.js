@@ -1,5 +1,5 @@
 // ========================================
-// AI不動産市場レポート v1.2
+// AI不動産市場レポート v1.3
 // エリア入力 → 政府統計 + AI分析 → プレビュー/課金
 // ========================================
 
@@ -7,6 +7,10 @@
 var WORKER_BASE = 'https://house-search-proxy.ai-fudosan.workers.dev';
 // テストモード（本番移行時にliveキーに切り替え）
 var STRIPE_PUBLISHABLE_KEY = 'pk_test_51SlP0L1TYnppSLqN6tbxRHKShC5tMahUClsl4dwdOTaGpmsI1ZVTri0lAkNNTwXJlpCY6KUqiLY9C5fJ6TnGy6x700hTjmcYDh';
+var SUPABASE_URL = 'https://ypyrjsdotkeyvzequdez.supabase.co';
+var SUPABASE_ANON_KEY = 'sb_publishable_l5yNWlXOZAHABwlbEalGng_R8zioydf';
+var supabaseClient = null;
+var currentUser = null;
 
 // ---- Prefecture Codes ----
 var PREFECTURE_CODES = {
@@ -46,11 +50,12 @@ var progressLogContent = document.getElementById('progress-log-content');
     // URLをクリーンアップ
     window.history.replaceState({}, '', window.location.pathname);
   }
-  // 購入履歴ボタン
-  document.getElementById('history-btn').addEventListener('click', showHistoryModal);
 
   // オートコンプリート初期化
   initAutocomplete();
+
+  // Supabase認証初期化
+  initSupabase();
 })();
 
 // ---- Autocomplete ----
@@ -129,6 +134,124 @@ function initAutocomplete() {
     dropdown.style.display = 'none';
     runAreaAnalysis(area);
   }
+}
+
+// ---- Supabase Auth ----
+function initSupabase() {
+  if (typeof supabase !== 'undefined' && supabase.createClient) {
+    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // 認証状態監視
+    supabaseClient.auth.onAuthStateChange(function(event, session) {
+      currentUser = session ? session.user : null;
+      updateAuthUI();
+    });
+    // 初期セッション取得
+    supabaseClient.auth.getSession().then(function(result) {
+      currentUser = result.data.session ? result.data.session.user : null;
+      updateAuthUI();
+    });
+  } else {
+    // SDKがまだ読み込まれていない場合はDOMContentLoaded後に再試行
+    document.addEventListener('DOMContentLoaded', function() {
+      if (typeof supabase !== 'undefined' && supabase.createClient) {
+        initSupabase();
+      }
+    });
+  }
+}
+
+function updateAuthUI() {
+  var authArea = document.getElementById('auth-area');
+  if (!authArea) return;
+  if (currentUser) {
+    var email = currentUser.email || '';
+    var displayName = email.split('@')[0];
+    authArea.innerHTML = '<span class="auth-user">\uD83D\uDC64 ' + escapeHtml(displayName) + '</span>' +
+      '<button class="header__history-btn" onclick="showHistoryModal()">📋 履歴</button>' +
+      '<button class="auth-logout-btn" onclick="logoutUser()">ログアウト</button>';
+  } else {
+    authArea.innerHTML = '<button class="auth-login-btn" onclick="showLoginModal()">🔑 ログイン</button>';
+  }
+}
+
+function showLoginModal() {
+  document.getElementById('login-modal').classList.add('active');
+  // デフォルトはログインモード
+  switchAuthMode('login');
+}
+
+function switchAuthMode(mode) {
+  var isLogin = (mode === 'login');
+  document.getElementById('auth-mode-title').textContent = isLogin ? 'ログイン' : '新規登録';
+  document.getElementById('auth-submit-btn').textContent = isLogin ? 'ログイン' : '登録する';
+  document.getElementById('auth-switch-text').innerHTML = isLogin ?
+    'アカウントをお持ちでない方は <a href="#" onclick="switchAuthMode(\'signup\'); return false;">新規登録</a>' :
+    'すでにアカウントをお持ちの方は <a href="#" onclick="switchAuthMode(\'login\'); return false;">ログイン</a>';
+  document.getElementById('auth-error').textContent = '';
+  // 現在のモードをdata属性に保持
+  document.getElementById('auth-form').dataset.mode = mode;
+}
+
+async function handleAuthSubmit(e) {
+  e.preventDefault();
+  if (!supabaseClient) { alert('認証システムを初期化中です。少々お待ちください。'); return; }
+
+  var email = document.getElementById('auth-email').value.trim();
+  var password = document.getElementById('auth-password').value;
+  var errorEl = document.getElementById('auth-error');
+  var submitBtn = document.getElementById('auth-submit-btn');
+  var mode = document.getElementById('auth-form').dataset.mode || 'login';
+
+  if (!email || !password) { errorEl.textContent = 'メールアドレスとパスワードを入力してください'; return; }
+  if (password.length < 6) { errorEl.textContent = 'パスワードは6文字以上で入力してください'; return; }
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = '処理中...';
+  errorEl.textContent = '';
+
+  try {
+    var result;
+    if (mode === 'login') {
+      result = await supabaseClient.auth.signInWithPassword({ email: email, password: password });
+    } else {
+      result = await supabaseClient.auth.signUp({ email: email, password: password });
+    }
+
+    if (result.error) throw result.error;
+
+    // 成功 → モーダルを閉じる
+    document.getElementById('login-modal').classList.remove('active');
+    document.getElementById('auth-form').reset();
+
+  } catch (err) {
+    var msg = err.message || '認証エラーが発生しました';
+    // よくあるエラーメッセージを日本語化
+    if (msg.includes('Invalid login')) msg = 'メールアドレスまたはパスワードが正しくありません';
+    if (msg.includes('already registered')) msg = 'このメールアドレスは既に登録されています';
+    if (msg.includes('Email not confirmed')) msg = 'メールアドレスが未確認です';
+    errorEl.textContent = msg;
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = (mode === 'login') ? 'ログイン' : '登録する';
+  }
+}
+
+async function loginWithGoogle() {
+  if (!supabaseClient) return;
+  var result = await supabaseClient.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin + window.location.pathname }
+  });
+  if (result.error) {
+    document.getElementById('auth-error').textContent = result.error.message || 'Googleログインエラー';
+  }
+}
+
+async function logoutUser() {
+  if (!supabaseClient) return;
+  await supabaseClient.auth.signOut();
+  currentUser = null;
+  updateAuthUI();
 }
 
 // ---- Gemini API via Worker Proxy ----
@@ -367,7 +490,7 @@ function showAreaSelectModal(candidates) {
 // ---- Main Analysis ----
 async function runAreaAnalysis(area) {
   currentArea = area;
-  isPurchased = isAreaPurchased(area.fullLabel);
+  isPurchased = await isAreaPurchasedAsync(area.fullLabel);
 
   hideError();
   hideResults();
@@ -854,16 +977,31 @@ function renderResults(data, purchased) {
 async function startCheckout() {
   if (!currentArea) return;
 
+  // ログインチェック
+  if (!currentUser) {
+    showLoginModal();
+    return;
+  }
+
   var btn = document.getElementById('purchase-btn');
   btn.disabled = true;
   btn.textContent = '処理中...';
 
   try {
+    // セッションからJWTを取得
+    var session = await supabaseClient.auth.getSession();
+    var token = session.data.session ? session.data.session.access_token : null;
+
     var res = await fetch(WORKER_BASE + '/api/checkout', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? ('Bearer ' + token) : ''
+      },
       body: JSON.stringify({
         area: currentArea.fullLabel,
+        area_code: currentArea.code || '',
+        user_id: currentUser.id,
         success_url: window.location.origin + window.location.pathname + '?session_id={CHECKOUT_SESSION_ID}',
         cancel_url: window.location.origin + window.location.pathname
       })
@@ -921,12 +1059,74 @@ function isAreaPurchased(areaName) {
   return getPurchases().some(function(p) { return p.area === areaName; });
 }
 
-function showHistoryModal() {
-  var listEl = document.getElementById('history-list');
-  var purchases = getPurchases();
+async function isAreaPurchasedAsync(areaName) {
+  // ログイン中ならDB確認
+  if (currentUser && supabaseClient) {
+    try {
+      var result = await supabaseClient
+        .from('purchases')
+        .select('id')
+        .eq('user_id', currentUser.id)
+        .eq('area_name', areaName)
+        .limit(1);
+      if (result.data && result.data.length > 0) return true;
+    } catch (e) { /* fall through to localStorage */ }
+  }
+  // フォールバック: localStorage
+  return isAreaPurchased(areaName);
+}
 
+async function showHistoryModal() {
+  var listEl = document.getElementById('history-list');
+
+  if (currentUser && supabaseClient) {
+    // DBから購入履歴を取得
+    listEl.innerHTML = '<p style="color:var(--text-muted); font-size:13px;">読み込み中...</p>';
+    document.getElementById('history-modal').classList.add('active');
+
+    try {
+      var result = await supabaseClient
+        .from('purchases')
+        .select('area_name, area_code, purchased_at, stripe_session_id')
+        .eq('user_id', currentUser.id)
+        .order('purchased_at', { ascending: false });
+
+      if (result.error) throw result.error;
+      var purchases = result.data || [];
+
+      if (purchases.length === 0) {
+        listEl.innerHTML = '<p style="color:var(--text-muted); font-size:13px;">購入履歴はありません</p>';
+      } else {
+        listEl.innerHTML = '';
+        purchases.forEach(function(p) {
+          var btn = document.createElement('button');
+          btn.className = 'area-select-btn';
+          btn.innerHTML = '<span style="font-size:20px;">✅</span>' +
+            '<div><div style="font-weight:700;">' + escapeHtml(p.area_name) + '</div>' +
+            '<div style="font-size:11px; color:var(--text-muted);">購入日: ' + new Date(p.purchased_at).toLocaleDateString('ja-JP') + '</div></div>';
+          btn.addEventListener('click', function() {
+            document.getElementById('history-modal').classList.remove('active');
+            areaInput.value = p.area_name;
+            startAnalysis();
+          });
+          listEl.appendChild(btn);
+        });
+      }
+    } catch (err) {
+      // DBエラー時はlocalStorageにフォールバック
+      showHistoryFromLocalStorage(listEl);
+    }
+  } else {
+    // 未ログイン時はlocalStorageから
+    showHistoryFromLocalStorage(listEl);
+    document.getElementById('history-modal').classList.add('active');
+  }
+}
+
+function showHistoryFromLocalStorage(listEl) {
+  var purchases = getPurchases();
   if (purchases.length === 0) {
-    listEl.innerHTML = '<p style="color:var(--text-muted); font-size:13px;">購入履歴はありません</p>';
+    listEl.innerHTML = '<p style="color:var(--text-muted); font-size:13px;">購入履歴はありません。ログインするとDB履歴を表示できます。</p>';
   } else {
     listEl.innerHTML = '';
     purchases.forEach(function(p) {
@@ -943,7 +1143,6 @@ function showHistoryModal() {
       listEl.appendChild(btn);
     });
   }
-  document.getElementById('history-modal').classList.add('active');
 }
 
 // ---- Excel Export ----
