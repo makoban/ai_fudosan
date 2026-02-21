@@ -18,8 +18,8 @@
   --accent-amber: #f59e0b;
   --accent-rose: #f43f5e;
   --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --text-secondary: #b0bfd4;
+  --text-muted: #8a9ab4;
   --border: rgba(255, 255, 255, 0.06);
   --radius: 16px;
   --radius-sm: 10px;
@@ -163,7 +163,7 @@ body {
 
 .hero__content {
   position: relative;
-  z-index: 2;
+  z-index: 3;
 }
 
 .hero__badge {
@@ -227,7 +227,7 @@ body {
   position: absolute;
   right: -5%;
   bottom: -80px;
-  z-index: 0; /* コンテンツの裏に回すか、あるいは邪魔にならないように */
+  z-index: 1;
   pointer-events: none;
   display: flex;
   align-items: flex-end;
@@ -377,8 +377,8 @@ body {
 }
 
 .search__hint {
-  font-size: 12px;
-  color: #718fa8;
+  font-size: 13px;
+  color: var(--text-muted);
   text-align: left;
   margin-top: 10px;
   line-height: 1.6;
@@ -422,15 +422,16 @@ body {
 }
 
 .feature-item__title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 4px;
 }
 
 .feature-item__desc {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
+  line-height: 1.6;
 }
 
 /* ========================================
@@ -1464,8 +1465,8 @@ body {
   .features { grid-template-columns: 1fr; gap: 8px; margin-top: 16px; }
   .feature-item { padding: 12px; }
   .feature-item__icon { font-size: 20px; }
-  .feature-item__title { font-size: 12px; }
-  .feature-item__desc { font-size: 10px; }
+  .feature-item__title { font-size: 13px; }
+  .feature-item__desc { font-size: 11px; }
 
   /* Progress */
   .progress__step { padding: 10px; gap: 10px; }
@@ -1634,7 +1635,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-secondary);
   background: var(--glass);
   border: 1px solid var(--glass-border);
