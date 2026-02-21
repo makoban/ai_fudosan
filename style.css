@@ -1448,12 +1448,20 @@ body {
   body { font-size: 13px; line-height: 1.6; overflow-x: hidden; }
   .container { padding: 0 12px; }
 
-  /* Header */
-  .header { padding: 12px 0; }
-  .header__logo-icon { width: 32px; height: 32px; font-size: 16px; border-radius: 8px; }
-  .header__logo-text { font-size: 16px; }
-  .header__badge { font-size: 10px; padding: 3px 8px; }
-  .btn-settings { font-size: 11px; padding: 6px 10px; }
+  /* Header - no wrap, shrink to fit */
+  .header { padding: 10px 0; }
+  .header__inner { flex-wrap: nowrap; gap: 8px; }
+  .header__logo { gap: 6px; min-width: 0; flex-shrink: 0; }
+  .header__logo-icon { width: 28px; height: 28px; font-size: 14px; border-radius: 7px; }
+  .header__logo-text { font-size: 12px; white-space: nowrap; }
+  .header__actions { gap: 6px; flex-shrink: 1; min-width: 0; }
+  .header__badge { font-size: 9px; padding: 2px 6px; flex-shrink: 0; }
+  .btn-settings { font-size: 10px; padding: 4px 8px; }
+  #auth-area { gap: 5px; }
+  .auth-user { font-size: 10px; max-width: 90px; }
+  .auth-login-btn { font-size: 10px; padding: 5px 10px; border-radius: 8px; white-space: nowrap; }
+  .auth-logout-btn { font-size: 10px; padding: 4px 8px; white-space: nowrap; }
+  .header__history-btn { font-size: 10px; padding: 4px 8px; white-space: nowrap; }
 
   /* Hero */
   .hero { padding: 24px 0 16px; }
@@ -1546,7 +1554,13 @@ body {
   .stat-box__value { font-size: 16px; }
   .data-table th, .data-table td { padding: 4px 6px; font-size: 10px; }
   .result-card__body { padding: 10px; font-size: 11px; }
-  .header__actions { gap: 8px; }
+  .header__actions { gap: 4px; }
+  .header__logo-text { font-size: 11px; }
+  .auth-user { font-size: 9px; max-width: 70px; }
+  .auth-login-btn { font-size: 9px; padding: 4px 8px; }
+  .auth-logout-btn { font-size: 9px; padding: 3px 6px; }
+  .header__history-btn { font-size: 9px; padding: 3px 6px; }
+  .header__badge { font-size: 8px; padding: 2px 5px; }
 }
 
 /* ========================================
