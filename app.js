@@ -1489,18 +1489,35 @@ async function exportPDF() {
   html += '</div>';
   html += '</div>'; // ルートdiv閉じ
 
+  // iframe内でCSS分離して描画（ページのダークモードCSSの干渉を防ぐ）
+  var iframe = document.createElement('iframe');
+  iframe.style.cssText = 'position:fixed; left:0; top:0; width:560px; height:900px; border:none; z-index:99999; background:#fff;';
+  document.body.appendChild(iframe);
+
+  var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+  iframeDoc.open();
+  iframeDoc.write('<!DOCTYPE html><html><head><meta charset="utf-8">');
+  iframeDoc.write('<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;700;800&display=swap" rel="stylesheet">');
+  iframeDoc.write('<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;margin:0;padding:0;}</style>');
+  iframeDoc.write('</head><body>' + html + '</body></html>');
+  iframeDoc.close();
+
+  // フォント読み込み＋レイアウト安定を待つ
+  await new Promise(function(r) { setTimeout(r, 1500); });
+
   try {
     await html2pdf().set({
-      // 上下左右8mmの均一マージンでクリッピングを防ぐ
       margin: [8, 8, 8, 8],
       filename: '不動産市場分析_' + area.fullLabel + '_' + new Date().toISOString().slice(0, 10) + '.pdf',
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true, logging: false, windowWidth: 560 },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: { mode: ['avoid-all', 'css'] }
-    }).from(html, 'string').save();
+    }).from(iframeDoc.body).save();
   } catch (e) {
     alert('PDF生成エラー: ' + e.message);
+  } finally {
+    document.body.removeChild(iframe);
   }
 }
 
