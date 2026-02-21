@@ -193,6 +193,14 @@ body {
   50% { opacity: 0.4; }
 }
 
+.hero__catchcopy {
+  font-size: 18px;
+  font-weight: 700;
+  color: #f59e0b;
+  margin-bottom: 12px;
+  letter-spacing: 0.05em;
+}
+
 .hero__title {
   font-size: 52px;
   font-weight: 900;
