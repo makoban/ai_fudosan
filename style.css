@@ -1448,17 +1448,17 @@ body {
   body { font-size: 13px; line-height: 1.6; overflow-x: hidden; }
   .container { padding: 0 12px; }
 
-  /* Header - no wrap, shrink to fit */
+  /* Header - single line, shrink logo text */
   .header { padding: 10px 0; }
-  .header__inner { flex-wrap: nowrap; gap: 8px; }
-  .header__logo { gap: 6px; min-width: 0; flex-shrink: 0; }
-  .header__logo-icon { width: 28px; height: 28px; font-size: 14px; border-radius: 7px; }
-  .header__logo-text { font-size: 12px; white-space: nowrap; }
-  .header__actions { gap: 6px; flex-shrink: 1; min-width: 0; }
-  .header__badge { font-size: 9px; padding: 2px 6px; flex-shrink: 0; }
+  .header__inner { flex-wrap: nowrap; gap: 6px; }
+  .header__logo { gap: 6px; flex-shrink: 1; min-width: 0; overflow: hidden; }
+  .header__logo-icon { width: 28px; height: 28px; font-size: 14px; border-radius: 7px; flex-shrink: 0; }
+  .header__logo-text { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .header__actions { gap: 5px; flex-shrink: 0; }
+  .header__badge { display: none; }
   .btn-settings { font-size: 10px; padding: 4px 8px; }
-  #auth-area { gap: 5px; }
-  .auth-user { font-size: 10px; max-width: 90px; }
+  #auth-area { gap: 4px; }
+  .auth-user { font-size: 10px; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .auth-login-btn { font-size: 10px; padding: 5px 10px; border-radius: 8px; white-space: nowrap; }
   .auth-logout-btn { font-size: 10px; padding: 4px 8px; white-space: nowrap; }
   .header__history-btn { font-size: 10px; padding: 4px 8px; white-space: nowrap; }
