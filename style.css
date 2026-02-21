@@ -248,10 +248,11 @@ body {
 .search-card {
   background: var(--bg-card);
   backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: var(--radius-lg);
   padding: 40px;
-  box-shadow: var(--shadow-lg), var(--shadow-glow);
+  box-shadow: var(--shadow-lg), var(--shadow-glow),
+              0 0 0 1px rgba(99, 179, 237, 0.08);
   max-width: 720px;
   margin: 0 auto;
   position: relative;
@@ -267,12 +268,12 @@ body {
 
 .search__label {
   display: block;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-bottom: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #e2e8f0;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  margin-bottom: 10px;
   text-align: left;
 }
 
@@ -284,24 +285,33 @@ body {
 
 .search__input {
   flex: 1;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius-sm);
-  padding: 16px 20px;
+  padding: 18px 20px;
   font-size: 16px;
   color: var(--text-primary);
   font-family: 'Inter', 'Noto Sans JP', sans-serif;
-  transition: var(--transition);
+  transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
   outline: none;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .search__input::placeholder {
-  color: var(--text-muted);
+  color: #8fa3bf;
+  font-size: 15px;
+}
+
+.search__input:hover {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.28);
 }
 
 .search__input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-glow);
+  background: rgba(255, 255, 255, 0.11);
+  border-color: #63b3ed;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2),
+              0 0 0 3px rgba(99, 179, 237, 0.20);
 }
 
 .search__btn {
@@ -362,8 +372,10 @@ body {
 
 .search__hint {
   font-size: 12px;
-  color: var(--text-muted);
+  color: #718fa8;
   text-align: left;
+  margin-top: 10px;
+  line-height: 1.6;
 }
 
 .search__hint a {

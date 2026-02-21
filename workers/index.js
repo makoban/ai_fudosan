@@ -452,6 +452,8 @@ async function handleCheckout(request, env) {
   // JWTから取得したメールアドレスをStripe Checkoutに事前入力
   if (email) {
     params.set("customer_email", email);
+    // 決済成功時に領収書メールを自動送信
+    params.set("payment_intent_data[receipt_email]", email);
   }
 
   // 日本語対応・日本円固定
