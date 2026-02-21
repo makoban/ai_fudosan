@@ -1296,8 +1296,7 @@ async function exportPDF() {
   var area = analysisData.area;
   var dateStr = new Date().toLocaleDateString('ja-JP');
 
-  // A4幅(210mm)に対して余白8mmを両側確保 → 実効194mm ≈ 540px(96dpi換算)
-  var html = '<div style="width:540px; font-family:\'Noto Sans JP\',\'Hiragino Sans\',\'Yu Gothic\',sans-serif; color:#1a1a2e; background:#fff; font-size:12px; line-height:1.6; padding:8px;">';
+  var html = '<div style="max-width:100%; font-family:\'Noto Sans JP\',sans-serif; color:#000; background:#fff; font-size:12px; line-height:1.6; padding:0;">';
 
   // セクション共通スタイル
   var S = 'page-break-inside:avoid; margin-bottom:6px; border:1px solid #cbd5e1; border-radius:4px; padding:8px 12px;';
@@ -1489,36 +1488,26 @@ async function exportPDF() {
   html += '</div>';
   html += '</div>'; // ルートdiv閉じ
 
-  // iframe内でCSS分離して描画（ページのダークモードCSSの干渉を防ぐ）
-  var iframe = document.createElement('iframe');
-  iframe.style.cssText = 'position:fixed; left:0; top:0; width:560px; height:900px; border:none; z-index:99999; background:#fff;';
-  document.body.appendChild(iframe);
+  // 新しいウィンドウで印刷（ブラウザネイティブレンダリングで高品質PDF）
+  var printWin = window.open('', '_blank', 'width=800,height=1000');
+  if (!printWin) { alert('ポップアップがブロックされました。ポップアップを許可してください。'); return; }
 
-  var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-  iframeDoc.open();
-  iframeDoc.write('<!DOCTYPE html><html><head><meta charset="utf-8">');
-  iframeDoc.write('<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;700;800&display=swap" rel="stylesheet">');
-  iframeDoc.write('<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;margin:0;padding:0;}</style>');
-  iframeDoc.write('</head><body>' + html + '</body></html>');
-  iframeDoc.close();
+  printWin.document.write('<!DOCTYPE html><html><head><meta charset="utf-8">');
+  printWin.document.write('<title>不動産市場分析_' + escapeHtml(area.fullLabel) + '</title>');
+  printWin.document.write('<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;700;800&display=swap" rel="stylesheet">');
+  printWin.document.write('<style>');
+  printWin.document.write('*{margin:0;padding:0;box-sizing:border-box;}');
+  printWin.document.write('body{background:#fff;color:#000;font-family:"Noto Sans JP",sans-serif;font-size:12px;line-height:1.6;padding:20px 30px;}');
+  printWin.document.write('@media print{body{padding:0;}@page{margin:12mm 15mm;}}');
+  printWin.document.write('</style></head><body>');
+  printWin.document.write(html);
+  printWin.document.write('</body></html>');
+  printWin.document.close();
 
-  // フォント読み込み＋レイアウト安定を待つ
-  await new Promise(function(r) { setTimeout(r, 1500); });
-
-  try {
-    await html2pdf().set({
-      margin: [8, 8, 8, 8],
-      filename: '不動産市場分析_' + area.fullLabel + '_' + new Date().toISOString().slice(0, 10) + '.pdf',
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, logging: false, windowWidth: 560 },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['avoid-all', 'css'] }
-    }).from(iframeDoc.body).save();
-  } catch (e) {
-    alert('PDF生成エラー: ' + e.message);
-  } finally {
-    document.body.removeChild(iframe);
-  }
+  // フォント読み込み後に印刷ダイアログを表示
+  printWin.onload = function() {
+    setTimeout(function() { printWin.print(); }, 800);
+  };
 }
 
 // ---- Excel Export ----
@@ -1714,25 +1703,55 @@ function exportExcel() {
   // ===== シート生成 =====
   var ws = XLSX.utils.aoa_to_sheet(rows);
 
-  // カラム幅の最適化（A:項目名=28文字、B:値=50文字、C:30文字、D:40文字）
-  ws['!cols'] = [
-    { wch: 28 },
-    { wch: 50 },
-    { wch: 30 },
-    { wch: 40 }
-  ];
-
-  // セル結合の適用
+  ws['!cols'] = [{ wch: 28 }, { wch: 50 }, { wch: 30 }, { wch: 40 }];
   ws['!merges'] = merges;
 
   // 行高さの適用
-  // SheetJS の !rows は配列: インデックスが行番号、値は { hpx: number }
-  if (rowHeights.length > 0) {
-    var wsRows = [];
-    rowHeights.forEach(function(rh) {
-      wsRows[rh.idx] = { hpx: rh.hpx };
-    });
-    ws['!rows'] = wsRows;
+  var wsRows = [];
+  rowHeights.forEach(function(rh) { wsRows[rh.idx] = { hpx: rh.hpx }; });
+  ws['!rows'] = wsRows;
+
+  // xlsx-js-style: セルスタイルを適用
+  var thinBorder = { style: 'thin', color: { rgb: 'CCCCCC' } };
+  var borders = { top: thinBorder, bottom: thinBorder, left: thinBorder, right: thinBorder };
+  var wrapAlign = { wrapText: true, vertical: 'top' };
+
+  // 全セルにwrapText + 罫線を適用
+  var range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+  for (var R = range.s.r; R <= range.e.r; R++) {
+    for (var C = range.s.c; C <= range.e.c; C++) {
+      var addr = XLSX.utils.encode_cell({ r: R, c: C });
+      if (!ws[addr]) ws[addr] = { v: '', t: 's' };
+      ws[addr].s = { alignment: wrapAlign, border: borders, font: { name: 'Yu Gothic', sz: 10 } };
+    }
+  }
+
+  // タイトル行(row 0)を太字・大きく
+  var titleAddr = XLSX.utils.encode_cell({ r: 0, c: 0 });
+  if (ws[titleAddr]) {
+    ws[titleAddr].s = { alignment: { horizontal: 'center', vertical: 'center' }, font: { name: 'Yu Gothic', sz: 14, bold: true }, border: borders };
+  }
+
+  // セクションヘッダー行を太字・背景色付き
+  merges.forEach(function(mg) {
+    var hdrAddr = XLSX.utils.encode_cell({ r: mg.s.r, c: 0 });
+    if (ws[hdrAddr] && ws[hdrAddr].v && typeof ws[hdrAddr].v === 'string') {
+      var val = ws[hdrAddr].v;
+      if (val.match(/^[①-⑩]/) || val.match(/^\[/) || val.match(/^推奨/) || val === 'AI不動産市場レポート') {
+        ws[hdrAddr].s = {
+          alignment: wrapAlign,
+          font: { name: 'Yu Gothic', sz: 11, bold: true, color: { rgb: '1E40AF' } },
+          fill: { fgColor: { rgb: 'DBEAFE' } },
+          border: borders
+        };
+      }
+    }
+  });
+
+  // AI市場分析サマリー行の特別スタイル
+  var summaryAddr = XLSX.utils.encode_cell({ r: summaryRowIdx, c: 0 });
+  if (ws[summaryAddr]) {
+    ws[summaryAddr].s = { alignment: wrapAlign, font: { name: 'Yu Gothic', sz: 10 }, border: borders };
   }
 
   XLSX.utils.book_append_sheet(wb, ws, '市場分析レポート');
