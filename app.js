@@ -1296,9 +1296,9 @@ async function exportPDF() {
   var area = analysisData.area;
   var dateStr = new Date().toLocaleDateString('ja-JP');
 
-  // DOM外に配置してhtml2canvasが正確にキャプチャできるようにする
+  // 画面外に配置（position:absoluteでhtml2canvasが正確にキャプチャできる）
   var container = document.createElement('div');
-  container.style.cssText = 'position:fixed; top:0; left:0; z-index:-9999; width:180mm; font-family:"Noto Sans JP","Hiragino Sans",sans-serif; color:#1a1a2e; background:#fff; font-size:9.5px; line-height:1.5;';
+  container.style.cssText = 'position:absolute; left:-9999px; top:0; width:680px; font-family:"Noto Sans JP","Hiragino Sans",sans-serif; color:#1a1a2e; background:#fff; font-size:9.5px; line-height:1.5; padding:10px;';
   container.setAttribute('aria-hidden', 'true');
 
   var html = '';
@@ -1497,7 +1497,7 @@ async function exportPDF() {
       margin: [10, 15, 10, 15],
       filename: '不動産市場分析_' + area.fullLabel + '_' + new Date().toISOString().slice(0, 10) + '.pdf',
       image: { type: 'jpeg', quality: 0.95 },
-      html2canvas: { scale: 2, useCORS: true, logging: false, windowWidth: container.scrollWidth },
+      html2canvas: { scale: 2, useCORS: true, logging: false, windowWidth: 680 },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: { mode: ['avoid-all', 'css'] }
     }).from(container).save();
