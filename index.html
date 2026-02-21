@@ -250,6 +250,110 @@
     </div>
   </div>
 
+  <!-- Sample Output -->
+  <section class="sample-section" id="sample">
+    <div class="container">
+      <div class="sample__header">
+        <p class="sample__label">Sample Report</p>
+        <h2 class="sample__title">出力例：東京都渋谷区</h2>
+        <p class="sample__desc">実際のレポートではAIが最新の政府統計データをもとに分析します</p>
+      </div>
+
+      <!-- 無料セクション：人口・世帯 -->
+      <div class="sample-card sample-card--free">
+        <div class="sample-card__badge">無料</div>
+        <div class="sample-card__header">
+          <span class="sample-card__icon">👥</span>
+          <h3>人口・世帯データ</h3>
+        </div>
+        <div class="sample-card__body">
+          <div class="stat-grid">
+            <div class="stat-box"><div class="stat-box__value" style="color:#10b981;">232,616</div><div class="stat-box__label">総人口</div></div>
+            <div class="stat-box"><div class="stat-box__value" style="color:#10b981;">143,468</div><div class="stat-box__label">世帯数</div></div>
+            <div class="stat-box"><div class="stat-box__value" style="color:#3b82f6;">25.3%</div><div class="stat-box__label">30〜45歳比率</div></div>
+            <div class="stat-box"><div class="stat-box__value" style="color:#f59e0b;">+0.8%</div><div class="stat-box__label">人口増減率</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 有料セクション：プレビュー（ぼかし） -->
+      <div class="sample-card sample-card--paid">
+        <div class="sample-card__badge sample-card__badge--paid">有料 ¥300</div>
+        <div class="sample-card__header">
+          <span class="sample-card__icon">🏗️</span>
+          <h3>建築着工統計</h3>
+        </div>
+        <div class="sample-card__body sample-card__blurred">
+          <div class="stat-grid">
+            <div class="stat-box"><div class="stat-box__value">3,850</div><div class="stat-box__label">着工戸数(年)</div></div>
+            <div class="stat-box"><div class="stat-box__value">420</div><div class="stat-box__label">持家</div></div>
+            <div class="stat-box"><div class="stat-box__value">2,150</div><div class="stat-box__label">貸家</div></div>
+            <div class="stat-box"><div class="stat-box__value">+5.2%</div><div class="stat-box__label">前年比</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sample-cards-row">
+        <div class="sample-card sample-card--paid sample-card--mini">
+          <div class="sample-card__header">
+            <span class="sample-card__icon">🏠</span>
+            <h3>住宅統計</h3>
+          </div>
+          <div class="sample-card__body sample-card__blurred">
+            <p>持ち家率 38.5% / 空き家率 12.8%</p>
+          </div>
+        </div>
+        <div class="sample-card sample-card--paid sample-card--mini">
+          <div class="sample-card__header">
+            <span class="sample-card__icon">📈</span>
+            <h3>土地相場</h3>
+          </div>
+          <div class="sample-card__body sample-card__blurred">
+            <p>住宅地 385万円/坪 / 商業地 892万円/㎡</p>
+          </div>
+        </div>
+        <div class="sample-card sample-card--paid sample-card--mini">
+          <div class="sample-card__header">
+            <span class="sample-card__icon">🏢</span>
+            <h3>競合分析</h3>
+          </div>
+          <div class="sample-card__body sample-card__blurred">
+            <p>工務店・HM 285社 / 飽和度：高い</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="sample-cta">
+        <p>他にも<strong>不動産市場・新築相場・潜在顧客・広告効果分析</strong>を含む全9セクション</p>
+        <a href="#area-input" class="sample-cta__btn" onclick="document.getElementById('area-input').focus();">分析してみる →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Receipt Info -->
+  <section class="receipt-section" id="receipt-info">
+    <div class="container">
+      <h2 class="receipt__title">🧾 領収書について</h2>
+      <div class="receipt__cards">
+        <div class="receipt__card">
+          <div class="receipt__card-icon">📧</div>
+          <h3>自動送信</h3>
+          <p>決済完了後、ご登録のメールアドレスにStripeから領収書が自動送信されます。</p>
+        </div>
+        <div class="receipt__card">
+          <div class="receipt__card-icon">📄</div>
+          <h3>記載内容</h3>
+          <p>金額（¥300税込）、決済日時、カード下4桁、商品名が記載されます。</p>
+        </div>
+        <div class="receipt__card">
+          <div class="receipt__card-icon">🔄</div>
+          <h3>再発行</h3>
+          <p>領収書の再発行が必要な場合は <a href="mailto:info@bantex.jp">info@bantex.jp</a> までご連絡ください。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- Footer -->
   <footer class="footer">
     <div class="container">
@@ -259,6 +363,7 @@
         <a href="https://bantex.jp/privacy.html" target="_blank">プライバシーポリシー</a>
         <a href="https://bantex.jp/tokushoho.html" target="_blank">特定商取引法に基づく表記</a>
         <a href="mailto:info@bantex.jp">お問い合わせ</a>
+        <a href="#receipt-info">領収書について</a>
       </div>
     </div>
   </footer>

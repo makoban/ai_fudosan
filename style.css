@@ -2266,6 +2266,217 @@ body {
 }
 
 /* Floating purchase button */
+/* ========================================
+   Sample Output Section
+   ======================================== */
+.sample-section {
+  padding: 60px 0;
+  position: relative;
+  z-index: 1;
+}
+
+.sample__header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.sample__label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+}
+
+.sample__title {
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #fff, #94a3b8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 8px;
+}
+
+.sample__desc {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.sample-card {
+  background: var(--bg-card);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.sample-card__badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 12px;
+}
+
+.sample-card__badge--paid {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.sample-card__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.sample-card__header h3 {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.sample-card__icon {
+  font-size: 24px;
+}
+
+.sample-card__blurred {
+  filter: blur(4px);
+  user-select: none;
+  opacity: 0.6;
+}
+
+.sample-cards-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.sample-card--mini {
+  padding: 16px;
+}
+
+.sample-card--mini .sample-card__header {
+  margin-bottom: 8px;
+}
+
+.sample-card--mini h3 {
+  font-size: 14px;
+}
+
+.sample-card--mini p {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.sample-cta {
+  text-align: center;
+  padding: 24px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1));
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: var(--radius);
+}
+
+.sample-cta p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.sample-cta strong {
+  color: var(--text-primary);
+}
+
+.sample-cta__btn {
+  display: inline-block;
+  background: var(--accent-gradient);
+  color: #fff;
+  text-decoration: none;
+  padding: 12px 32px;
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  font-weight: 700;
+  transition: var(--transition);
+}
+
+.sample-cta__btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(59, 130, 246, 0.4);
+}
+
+/* ========================================
+   Receipt Info Section
+   ======================================== */
+.receipt-section {
+  padding: 40px 0;
+  position: relative;
+  z-index: 1;
+}
+
+.receipt__title {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 800;
+  margin-bottom: 24px;
+}
+
+.receipt__cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.receipt__card {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  padding: 24px;
+  text-align: center;
+}
+
+.receipt__card-icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+}
+
+.receipt__card h3 {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.receipt__card p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.receipt__card a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.receipt__card a:hover {
+  text-decoration: underline;
+}
+
+/* ---- Sample/Receipt Mobile ---- */
+@media (max-width: 768px) {
+  .sample__title { font-size: 22px; }
+  .sample-cards-row { grid-template-columns: 1fr; }
+  .sample-card { padding: 16px; }
+  .receipt__cards { grid-template-columns: 1fr; }
+  .receipt__card { padding: 16px; }
+  .receipt__title { font-size: 18px; }
+}
+
 .purchase-float-btn {
   position: fixed;
   bottom: 24px;
