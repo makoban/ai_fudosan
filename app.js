@@ -1152,7 +1152,7 @@ async function verifyPurchase(sessionId) {
         // Google Ads コンバージョン計測
       if (typeof gtag === 'function') {
         gtag('event', 'conversion', {
-          'send_to': 'AW-17822680636/purchase',
+          'send_to': 'AW-17822680636/ObktCMO1rvwBELyMhrJC',
           'value': 300,
           'currency': 'JPY',
           'transaction_id': sessionId
