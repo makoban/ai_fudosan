@@ -262,18 +262,24 @@ body {
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.5), transparent);
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.6), rgba(139, 92, 246, 0.6), transparent);
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
 }
 
 .search__label {
   display: block;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
-  color: #e2e8f0;
+  color: #f1f5f9;
   text-transform: none;
   letter-spacing: 0.02em;
-  margin-bottom: 10px;
+  margin-bottom: 14px;
   text-align: left;
 }
 
@@ -288,7 +294,7 @@ body {
   background: rgba(255, 255, 255, 0.07);
   border: 1.5px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius-sm);
-  padding: 18px 20px;
+  padding: 18px 20px 18px 44px;
   font-size: 16px;
   color: var(--text-primary);
   font-family: 'Inter', 'Noto Sans JP', sans-serif;
@@ -1447,9 +1453,12 @@ body {
   .hero__image { max-width: 200px; margin-top: 12px; }
 
   /* Search */
-  .search-card { padding: 16px; border-radius: 12px; }
-  .search__input { font-size: 13px; padding: 10px 12px; }
-  .search__btn { padding: 10px 16px; font-size: 13px; width: 100%; }
+  .search-card { padding: 20px; border-radius: 12px; }
+  .search__label { font-size: 14px; margin-bottom: 10px; }
+  .search__input { font-size: 15px; padding: 14px 14px 14px 40px; }
+  .search__autocomplete::before { left: 12px; font-size: 16px; }
+  .search__btn { padding: 14px 16px; font-size: 14px; width: 100%; }
+  .search__hint { font-size: 11px; }
 
   /* Features */
   .features { grid-template-columns: 1fr; gap: 8px; margin-top: 16px; }
@@ -1964,6 +1973,18 @@ body {
 .search__autocomplete {
   position: relative;
   flex: 1;
+}
+
+.search__autocomplete::before {
+  content: '\1F50D';
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.6;
 }
 
 .autocomplete-dropdown {
