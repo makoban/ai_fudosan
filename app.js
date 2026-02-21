@@ -1149,7 +1149,16 @@ async function verifyPurchase(sessionId) {
         document.getElementById('purchase-prompt').style.display = 'none';
         renderResults(analysisData, true);
         showResults();
-        // 領収書メール案内（購入直後のみ表示）
+        // Google Ads コンバージョン計測
+      if (typeof gtag === 'function') {
+        gtag('event', 'conversion', {
+          'send_to': 'AW-17822680636/purchase',
+          'value': 300,
+          'currency': 'JPY',
+          'transaction_id': sessionId
+        });
+      }
+      // 領収書メール案内（購入直後のみ表示）
         var receiptNote = document.createElement('div');
         receiptNote.style.cssText = 'text-align:center; padding:8px; margin:8px 0; background:rgba(16,185,129,0.1); border-radius:8px; font-size:13px; color:#10b981;';
         receiptNote.textContent = '購入ありがとうございます。領収書はご登録メールアドレスに送信されます。';
