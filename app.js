@@ -1296,12 +1296,7 @@ async function exportPDF() {
   var area = analysisData.area;
   var dateStr = new Date().toLocaleDateString('ja-JP');
 
-  // 画面外に配置（position:absoluteでhtml2canvasが正確にキャプチャできる）
-  var container = document.createElement('div');
-  container.style.cssText = 'position:absolute; left:0; top:0; width:680px; z-index:-1; pointer-events:none; font-family:"Noto Sans JP","Hiragino Sans",sans-serif; color:#1a1a2e; background:#fff; font-size:9.5px; line-height:1.5; padding:10px;';
-  container.setAttribute('aria-hidden', 'true');
-
-  var html = '';
+  var html = '<div style="width:680px; font-family:\'Noto Sans JP\',\'Hiragino Sans\',sans-serif; color:#1a1a2e; background:#fff; font-size:9.5px; line-height:1.5; padding:10px;">';
 
   // セクション共通スタイル（コンパクト化）
   var S = 'page-break-inside:avoid; margin-bottom:8px; border:1px solid #cbd5e1; border-radius:4px; padding:7px 10px;';
@@ -1488,9 +1483,7 @@ async function exportPDF() {
   html += '<div style="text-align:center; margin-top:10px; padding-top:6px; border-top:1px solid #e2e8f0;">';
   html += '<div style="font-size:7.5px; color:#94a3b8;">AI不動産市場レポート v1.7 | Powered by AI + 政府統計データ | ' + dateStr + '</div>';
   html += '</div>';
-
-  container.innerHTML = html;
-  document.body.appendChild(container);
+  html += '</div>'; // ルートdiv閉じ
 
   try {
     await html2pdf().set({
@@ -1500,11 +1493,9 @@ async function exportPDF() {
       html2canvas: { scale: 2, useCORS: true, logging: false, windowWidth: 680 },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: { mode: ['avoid-all', 'css'] }
-    }).from(container).save();
+    }).from(html, 'string').save();
   } catch (e) {
     alert('PDF生成エラー: ' + e.message);
-  } finally {
-    document.body.removeChild(container);
   }
 }
 
