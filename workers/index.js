@@ -9,6 +9,10 @@
  *   POST /api/checkout            - Stripe Checkout Session 作成
  *   POST /api/webhook             - Stripe Webhook 受信
  *   GET  /api/purchases           - 購入確認（session_id クエリパラメータ）
+ *   GET  /api/purchases/check     - エリア購入済み判定
+ *   GET  /api/purchases/history   - 購入履歴一覧
+ *   POST /api/purchases/save-data - 分析データ保存
+ *   GET  /api/purchases/data      - 保存済み分析データ取得
  *
  * Required environment variables (set via wrangler secret put):
  *   GEMINI_API_KEY
@@ -39,21 +43,46 @@ const ESTAT_STATS_ID = {
 // Stripe API エンドポイント
 const STRIPE_API_BASE = "https://api.stripe.com/v1";
 
+// 許可オリジン（MEDIUM-04修正: Access-Control-Allow-Origin を制限）
+const ALLOWED_ORIGINS = [
+  "https://ai-fudosan.bantex.jp",
+  "https://makoban.github.io",
+];
+
 // ---------------------------------------------------------------------------
 // CORS helpers
 // ---------------------------------------------------------------------------
 
 /**
- * CORS ヘッダーを生成する。
+ * CORS 共通ヘッダーを生成する（Origin は含めない）。
+ * Origin ヘッダーはエントリポイントの addCorsOrigin() で一元付与する。
  * @returns {Headers}
  */
 function buildCorsHeaders() {
   const headers = new Headers();
-  headers.set("Access-Control-Allow-Origin", "*");
   headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, stripe-signature");
   headers.set("Access-Control-Max-Age", "86400");
   return headers;
+}
+
+/**
+ * レスポンスに Access-Control-Allow-Origin を付与する。
+ * エントリポイントで全レスポンスに対して呼ばれる（グローバル変数を使わない安全な設計）。
+ * @param {Response} response
+ * @param {string} origin
+ * @returns {Response}
+ */
+function addCorsOrigin(response, origin) {
+  if (!origin || !ALLOWED_ORIGINS.includes(origin)) return response;
+  const newHeaders = new Headers(response.headers);
+  newHeaders.set("Access-Control-Allow-Origin", origin);
+  newHeaders.set("Vary", "Origin");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: newHeaders,
+  });
 }
 
 /**
@@ -249,8 +278,13 @@ async function handleEstatQuery(request, env) {
   const params = new URLSearchParams(incomingParams);
 
   // endpoint クエリで e-Stat のエンドポイントを選択可能（デフォルト: getStatsData）
+  const ALLOWED_ESTAT_ENDPOINTS = ["/getStatsData", "/getStatsList", "/getMetaInfo"];
   const estatEndpoint = params.get("_endpoint") ?? "/getStatsData";
   params.delete("_endpoint");
+
+  if (!ALLOWED_ESTAT_ENDPOINTS.includes(estatEndpoint)) {
+    return errorResponse("不正なエンドポイントです", 400);
+  }
 
   return fetchEstat(estatEndpoint, params, env);
 }
@@ -294,6 +328,8 @@ async function supabaseRequest(path, method, body, env, options = {}) {
  * @param {object} env
  * @returns {Promise<{user_id: string|null, email: string|null}>}
  */
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 async function getUserFromJWT(request, env) {
   const authHeader = request.headers.get("Authorization") || "";
   if (!authHeader.startsWith("Bearer ")) return { user_id: null, email: null };
@@ -308,7 +344,12 @@ async function getUserFromJWT(request, env) {
     });
     if (!res.ok) return { user_id: null, email: null };
     const user = await res.json();
-    return { user_id: user.id || null, email: user.email || null };
+    const userId = user.id || null;
+    // UUID形式でない場合は無効とする（クエリインジェクション防止）
+    if (userId && !UUID_REGEX.test(userId)) {
+      return { user_id: null, email: null };
+    }
+    return { user_id: userId, email: user.email || null };
   } catch {
     return { user_id: null, email: null };
   }
@@ -589,6 +630,7 @@ async function handleWebhook(request, env, ctx) {
       session_id: sessionId,
       area,
       email,
+      user_id: userId,
       purchased_at: purchasedAt,
       purchased_at_iso: new Date(purchasedAt * 1000).toISOString(),
     };
@@ -865,6 +907,54 @@ async function handleGetAnalysisData(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// GET /api/purchases/check?area_name=xxx（HIGH-04修正: Supabase直接クエリの代替）
+// ---------------------------------------------------------------------------
+
+/**
+ * 指定エリアの購入済み判定を返す。
+ */
+async function handleCheckPurchase(request, env) {
+  const { user_id } = await getUserFromJWT(request, env);
+  if (!user_id) return errorResponse("認証が必要です", 401);
+
+  const url = new URL(request.url);
+  const areaName = url.searchParams.get("area_name");
+  if (!areaName) return errorResponse("area_name は必須です", 400);
+
+  const result = await supabaseRequest(
+    `/purchases?user_id=eq.${user_id}&area_name=eq.${encodeURIComponent(areaName)}&select=id&limit=1`,
+    "GET",
+    null,
+    env
+  );
+
+  const purchased = result.ok && result.data && result.data.length > 0;
+  return jsonResponse({ purchased });
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/purchases/history（HIGH-04修正: Supabase直接クエリの代替）
+// ---------------------------------------------------------------------------
+
+/**
+ * ユーザーの購入履歴一覧を返す。
+ */
+async function handlePurchaseHistory(request, env) {
+  const { user_id } = await getUserFromJWT(request, env);
+  if (!user_id) return errorResponse("認証が必要です", 401);
+
+  const result = await supabaseRequest(
+    `/purchases?user_id=eq.${user_id}&select=area_name,area_code,purchased_at,stripe_session_id&order=purchased_at.desc`,
+    "GET",
+    null,
+    env
+  );
+
+  if (!result.ok) return errorResponse("購入履歴の取得に失敗しました", 500);
+  return jsonResponse({ purchases: result.data || [] });
+}
+
+// ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
 
@@ -923,6 +1013,16 @@ async function router(request, env, ctx) {
     return handlePurchases(request, env);
   }
 
+  // GET /api/purchases/check - エリア購入済み判定
+  if (path === "/api/purchases/check" && method === "GET") {
+    return handleCheckPurchase(request, env);
+  }
+
+  // GET /api/purchases/history - 購入履歴一覧
+  if (path === "/api/purchases/history" && method === "GET") {
+    return handlePurchaseHistory(request, env);
+  }
+
   // POST /api/purchases/save-data - 分析データをDBに保存
   if (path === "/api/purchases/save-data" && method === "POST") {
     return handleSaveAnalysisData(request, env);
@@ -949,12 +1049,14 @@ export default {
    * @returns {Promise<Response>}
    */
   async fetch(request, env, ctx) {
+    const origin = request.headers.get("Origin") || "";
     try {
-      return await router(request, env, ctx);
+      const response = await router(request, env, ctx);
+      return addCorsOrigin(response, origin);
     } catch (err) {
-      // 予期しないエラーをキャッチしてログ出力
       console.error("予期しないエラー:", err.message, err.stack);
-      return errorResponse("内部サーバーエラーが発生しました", 500);
+      const errResponse = errorResponse("内部サーバーエラーが発生しました", 500);
+      return addCorsOrigin(errResponse, origin);
     }
   },
 };

@@ -1,12 +1,11 @@
 // ========================================
-// AI不動産市場レポート v1.6
+// AI不動産市場レポート v1.7
 // エリア入力 → 政府統計 + AI分析 → プレビュー/課金
 // ========================================
 
 // ---- Config ----
 var WORKER_BASE = 'https://house-search-proxy.ai-fudosan.workers.dev';
-// テストモード（本番移行時にliveキーに切り替え）
-var STRIPE_PUBLISHABLE_KEY = 'pk_test_51SlP0L1TYnppSLqN6tbxRHKShC5tMahUClsl4dwdOTaGpmsI1ZVTri0lAkNNTwXJlpCY6KUqiLY9C5fJ6TnGy6x700hTjmcYDh';
+// Stripe SDK は不要（CRITICAL-01修正: window.location.href でリダイレクト）
 var SUPABASE_URL = 'https://ypyrjsdotkeyvzequdez.supabase.co';
 var SUPABASE_ANON_KEY = 'sb_publishable_l5yNWlXOZAHABwlbEalGng_R8zioydf';
 var supabaseClient = null;
@@ -173,6 +172,11 @@ function initSupabase() {
       }
       // 認証完了後にStripe決済戻りの購入確認を実行（CRITICAL-02修正）
       if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN') && _pendingVerifySessionId) {
+        // INITIAL_SESSION で未ログイン → ログインを促す
+        if (event === 'INITIAL_SESSION' && !session) {
+          showLoginModal();
+          return;
+        }
         var sid = _pendingVerifySessionId;
         _pendingVerifySessionId = null;
         verifyPurchase(sid);
@@ -1172,16 +1176,18 @@ function isAreaPurchased(areaName) {
 }
 
 async function isAreaPurchasedAsync(areaName) {
-  // ログイン中ならDB確認
+  // ログイン中ならWorker API経由でDB確認（HIGH-04修正: Supabase直接クエリ廃止）
   if (currentUser && supabaseClient) {
     try {
-      var result = await supabaseClient
-        .from('purchases')
-        .select('id')
-        .eq('user_id', currentUser.id)
-        .eq('area_name', areaName)
-        .limit(1);
-      if (result.data && result.data.length > 0) return true;
+      var session = await supabaseClient.auth.getSession();
+      var token = session.data.session ? session.data.session.access_token : null;
+      if (token) {
+        var res = await fetch(WORKER_BASE + '/api/purchases/check?area_name=' + encodeURIComponent(areaName), {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        var result = await res.json();
+        if (result.purchased) return true;
+      }
     } catch (e) { /* fall through to localStorage */ }
   }
   // フォールバック: localStorage
@@ -1192,19 +1198,21 @@ async function showHistoryModal() {
   var listEl = document.getElementById('history-list');
 
   if (currentUser && supabaseClient) {
-    // DBから購入履歴を取得
+    // Worker API経由でDB購入履歴を取得（HIGH-04修正: Supabase直接クエリ廃止）
     listEl.innerHTML = '<p style="color:var(--text-muted); font-size:13px;">読み込み中...</p>';
     document.getElementById('history-modal').classList.add('active');
 
     try {
-      var result = await supabaseClient
-        .from('purchases')
-        .select('area_name, area_code, purchased_at, stripe_session_id')
-        .eq('user_id', currentUser.id)
-        .order('purchased_at', { ascending: false });
+      var session = await supabaseClient.auth.getSession();
+      var token = session.data.session ? session.data.session.access_token : null;
+      if (!token) throw new Error('認証トークンなし');
 
-      if (result.error) throw result.error;
-      var purchases = result.data || [];
+      var res = await fetch(WORKER_BASE + '/api/purchases/history', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      var data = await res.json();
+      if (!res.ok) throw new Error(data.error || '履歴取得エラー');
+      var purchases = data.purchases || [];
 
       if (purchases.length === 0) {
         listEl.innerHTML = '<p style="color:var(--text-muted); font-size:13px;">購入履歴はありません</p>';
@@ -1281,6 +1289,7 @@ function handlePdfDownload() {
 }
 
 async function exportPDF() {
+  if (typeof html2pdf === 'undefined') { alert('PDF生成ライブラリが読み込まれていません。ページを再読み込みしてお試しください。'); return; }
   if (!analysisData || !analysisData.market) { alert('分析データがありません'); return; }
 
   var m = analysisData.market;
@@ -1290,6 +1299,7 @@ async function exportPDF() {
   // DOM外に配置してhtml2canvasが正確にキャプチャできるようにする
   var container = document.createElement('div');
   container.style.cssText = 'position:fixed; top:0; left:0; z-index:-9999; width:180mm; font-family:"Noto Sans JP","Hiragino Sans",sans-serif; color:#1a1a2e; background:#fff; font-size:9.5px; line-height:1.5;';
+  container.setAttribute('aria-hidden', 'true');
 
   var html = '';
 
@@ -1476,7 +1486,7 @@ async function exportPDF() {
 
   // ===== フッター =====
   html += '<div style="text-align:center; margin-top:10px; padding-top:6px; border-top:1px solid #e2e8f0;">';
-  html += '<div style="font-size:7.5px; color:#94a3b8;">AI不動産市場レポート v1.5 | Powered by AI + 政府統計データ | ' + dateStr + '</div>';
+  html += '<div style="font-size:7.5px; color:#94a3b8;">AI不動産市場レポート v1.7 | Powered by AI + 政府統計データ | ' + dateStr + '</div>';
   html += '</div>';
 
   container.innerHTML = html;
