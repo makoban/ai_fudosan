@@ -2305,75 +2305,50 @@ body {
   color: var(--text-muted);
 }
 
-.sample-card {
-  background: var(--bg-card);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius);
-  padding: 24px;
-  margin-bottom: 16px;
+.sample-report-preview {
   position: relative;
+  max-width: 680px;
+  margin: 0 auto 24px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-lg), var(--shadow-glow);
 }
 
-.sample-card__badge {
+.sample-report-scroll {
+  max-height: 600px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
+}
+
+.sample-report-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sample-report-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sample-report-scroll::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 3px;
+}
+
+.sample-report-img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.sample-report-fade {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  background: linear-gradient(135deg, #10b981, #059669);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 4px 12px;
-  border-radius: 12px;
-}
-
-.sample-card__badge--paid {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-}
-
-.sample-card__header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.sample-card__header h3 {
-  font-size: 16px;
-  font-weight: 700;
-}
-
-.sample-card__icon {
-  font-size: 24px;
-}
-
-.sample-card__blurred {
-  filter: blur(4px);
-  user-select: none;
-  opacity: 0.6;
-}
-
-.sample-cards-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.sample-card--mini {
-  padding: 16px;
-}
-
-.sample-card--mini .sample-card__header {
-  margin-bottom: 8px;
-}
-
-.sample-card--mini h3 {
-  font-size: 14px;
-}
-
-.sample-card--mini p {
-  font-size: 13px;
-  color: var(--text-secondary);
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  background: linear-gradient(to top, var(--bg-primary), transparent);
+  pointer-events: none;
 }
 
 .sample-cta {
@@ -2470,8 +2445,8 @@ body {
 /* ---- Sample/Receipt Mobile ---- */
 @media (max-width: 768px) {
   .sample__title { font-size: 22px; }
-  .sample-cards-row { grid-template-columns: 1fr; }
-  .sample-card { padding: 16px; }
+  .sample-report-scroll { max-height: 450px; }
+  .sample-report-preview { margin: 0 -8px 24px; border-radius: var(--radius-sm); }
   .receipt__cards { grid-template-columns: 1fr; }
   .receipt__card { padding: 16px; }
   .receipt__title { font-size: 18px; }
