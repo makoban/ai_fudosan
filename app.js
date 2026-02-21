@@ -170,6 +170,16 @@ function initSupabase() {
           _doCheckout();
         }
       }
+      // パスワードリセットリンクからのリダイレクト検知
+      if (event === 'PASSWORD_RECOVERY') {
+        var newPass = prompt('新しいパスワードを入力してください（6文字以上）');
+        if (newPass && newPass.length >= 6) {
+          supabaseClient.auth.updateUser({ password: newPass }).then(function(res) {
+            if (res.error) alert('パスワード変更エラー: ' + res.error.message);
+            else alert('パスワードを変更しました。ログイン済みです。');
+          });
+        }
+      }
       // 認証完了後にStripe決済戻りの購入確認を実行（CRITICAL-02修正）
       if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN') && _pendingVerifySessionId) {
         // INITIAL_SESSION で未ログイン → ログインを促す
@@ -215,6 +225,10 @@ function switchAuthMode(mode) {
     'アカウントをお持ちでない方は <a href="#" onclick="switchAuthMode(\'signup\'); return false;">新規登録</a>' :
     'すでにアカウントをお持ちの方は <a href="#" onclick="switchAuthMode(\'login\'); return false;">ログイン</a>';
   document.getElementById('auth-error').textContent = '';
+  // パスワードリセットモードからの復帰
+  document.getElementById('auth-password').style.display = '';
+  var forgotEl = document.getElementById('auth-forgot');
+  if (forgotEl) forgotEl.style.display = isLogin ? '' : 'none';
   // 現在のモードをdata属性に保持
   document.getElementById('auth-form').dataset.mode = mode;
 }
@@ -238,7 +252,16 @@ async function handleAuthSubmit(e) {
 
   try {
     var result;
-    if (mode === 'login') {
+    if (mode === 'reset') {
+      // パスワードリセットメール送信
+      result = await supabaseClient.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + window.location.pathname
+      });
+      if (result.error) throw result.error;
+      errorEl.style.color = '#10b981';
+      errorEl.textContent = 'リセットメールを送信しました。メールのリンクからパスワードを再設定してください。';
+      return;
+    } else if (mode === 'login') {
       result = await supabaseClient.auth.signInWithPassword({ email: email, password: password });
     } else {
       result = await supabaseClient.auth.signUp({ email: email, password: password });
@@ -256,10 +279,12 @@ async function handleAuthSubmit(e) {
     if (msg.includes('Invalid login')) msg = 'メールアドレスまたはパスワードが正しくありません';
     if (msg.includes('already registered')) msg = 'このメールアドレスは既に登録されています';
     if (msg.includes('Email not confirmed')) msg = 'メールアドレスが未確認です';
+    errorEl.style.color = '';
     errorEl.textContent = msg;
   } finally {
     submitBtn.disabled = false;
-    submitBtn.textContent = (mode === 'login') ? 'ログイン' : '登録する';
+    if (mode === 'reset') submitBtn.textContent = 'リセットメールを送信';
+    else submitBtn.textContent = (mode === 'login') ? 'ログイン' : '登録する';
   }
 }
 
@@ -279,6 +304,18 @@ async function logoutUser() {
   // signOut()がonAuthStateChangeをトリガーし、currentUser=null + updateAuthUI()が自動実行される
   await supabaseClient.auth.signOut();
 }
+
+function showPasswordReset() {
+  document.getElementById('auth-mode-title').textContent = 'パスワードリセット';
+  document.getElementById('auth-password').style.display = 'none';
+  document.getElementById('auth-submit-btn').textContent = 'リセットメールを送信';
+  document.getElementById('auth-forgot').style.display = 'none';
+  document.getElementById('auth-error').textContent = '';
+  document.getElementById('auth-form').dataset.mode = 'reset';
+  document.getElementById('auth-switch-text').innerHTML =
+    '<a href="#" onclick="switchAuthMode(\'login\'); return false;">ログインに戻る</a>';
+}
+
 
 // ---- Gemini API via Worker Proxy ----
 var _lastGeminiCall = 0;
@@ -1112,6 +1149,12 @@ async function verifyPurchase(sessionId) {
         document.getElementById('purchase-prompt').style.display = 'none';
         renderResults(analysisData, true);
         showResults();
+        // 領収書メール案内（購入直後のみ表示）
+        var receiptNote = document.createElement('div');
+        receiptNote.style.cssText = 'text-align:center; padding:8px; margin:8px 0; background:rgba(16,185,129,0.1); border-radius:8px; font-size:13px; color:#10b981;';
+        receiptNote.textContent = '購入ありがとうございます。領収書はご登録メールアドレスに送信されます。';
+        var resultsHeader = document.querySelector('.results__header');
+        if (resultsHeader) resultsHeader.after(receiptNote);
 
         // 分析データをDBに保存
         _saveAnalysisDataToDB(data.area, analysisData);
@@ -1768,7 +1811,7 @@ function cancelPurchasePrompt() {
     floatBtn = document.createElement('button');
     floatBtn.id = 'purchase-float-btn';
     floatBtn.className = 'purchase-float-btn';
-    floatBtn.textContent = '🔓 完全版を購入 ¥150';
+    floatBtn.textContent = '🔓 完全版を購入 ¥300';
     floatBtn.onclick = function() {
       floatBtn.style.display = 'none';
       document.getElementById('purchase-prompt').style.display = 'flex';

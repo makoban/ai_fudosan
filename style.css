@@ -1915,6 +1915,13 @@ body {
   transition: color 0.2s;
 }
 
+.footer__links a + a::before {
+  content: '|';
+  margin: 0 8px;
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
 .footer__links a:hover {
   color: var(--accent);
 }
@@ -2210,6 +2217,19 @@ body {
 }
 .auth-switch a:hover {
   text-decoration: underline;
+}
+
+.auth-forgot {
+  text-align: right;
+  margin-top: -4px;
+}
+.auth-forgot a {
+  color: var(--text-muted);
+  font-size: 12px;
+  text-decoration: none;
+}
+.auth-forgot a:hover {
+  color: #818cf8;
 }
 
 /* Floating purchase button */

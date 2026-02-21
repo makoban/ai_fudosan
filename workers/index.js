@@ -675,7 +675,7 @@ async function handleWebhook(request, env, ctx) {
               area_name: area,
               stripe_session_id: sessionId,
               stripe_payment_intent_id: paymentIntentId,
-              amount: 150,
+              amount: 300,
             }, env, {
               // 重複を無視（同一 stripe_session_id は UNIQUE 制約）
               headers: { "Prefer": "return=minimal" },
@@ -804,7 +804,7 @@ async function handlePurchases(request, env) {
           area_name: area,
           stripe_session_id: sessionId,
           stripe_payment_intent_id: paymentIntentId,
-          amount: 150,
+          amount: 300,
         }, env, {
           headers: { "Prefer": "return=minimal" },
           prefer: "return=minimal",

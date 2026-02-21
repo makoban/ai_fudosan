@@ -6,7 +6,7 @@ compatibility_date = "2024-09-25"
 # 公開しても問題ない変数（[vars] に記載）
 # --------------------------------------------------------------------------
 [vars]
-STRIPE_PRICE_ID = "price_1T2vcc1TYnppSLqN3H8P4BXO"
+STRIPE_PRICE_ID = "price_1T35VL1TYnppSLqNI7d6vIas"
 SUPABASE_URL = "https://ypyrjsdotkeyvzequdez.supabase.co"
 
 # --------------------------------------------------------------------------
