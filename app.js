@@ -1298,7 +1298,7 @@ async function exportPDF() {
 
   // 画面外に配置（position:absoluteでhtml2canvasが正確にキャプチャできる）
   var container = document.createElement('div');
-  container.style.cssText = 'position:absolute; left:-9999px; top:0; width:680px; font-family:"Noto Sans JP","Hiragino Sans",sans-serif; color:#1a1a2e; background:#fff; font-size:9.5px; line-height:1.5; padding:10px;';
+  container.style.cssText = 'position:absolute; left:0; top:0; width:680px; z-index:-1; pointer-events:none; font-family:"Noto Sans JP","Hiragino Sans",sans-serif; color:#1a1a2e; background:#fff; font-size:9.5px; line-height:1.5; padding:10px;';
   container.setAttribute('aria-hidden', 'true');
 
   var html = '';
