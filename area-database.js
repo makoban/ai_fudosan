@@ -14,6 +14,27 @@ function _addCity(p,c){var pc=_P[p]||"00";AREA_DATABASE.push({name:c,prefecture:
 })();
 
 (function(){
+// 政令指定都市（市全体）
+_addCity('北海道','札幌市');
+_addCity('宮城県','仙台市');
+_addCity('埼玉県','さいたま市');
+_addCity('千葉県','千葉市');
+_addCity('神奈川県','横浜市');
+_addCity('神奈川県','川崎市');
+_addCity('神奈川県','相模原市');
+_addCity('新潟県','新潟市');
+_addCity('静岡県','静岡市');
+_addCity('静岡県','浜松市');
+_addCity('愛知県','名古屋市');
+_addCity('京都府','京都市');
+_addCity('大阪府','大阪市');
+_addCity('大阪府','堺市');
+_addCity('兵庫県','神戸市');
+_addCity('岡山県','岡山市');
+_addCity('広島県','広島市');
+_addCity('福岡県','北九州市');
+_addCity('福岡県','福岡市');
+_addCity('熊本県','熊本市');
 _addCity('北海道','三笠市');
 _addCity('北海道','上川郡上川町');
 _addCity('北海道','上川郡下川町');
