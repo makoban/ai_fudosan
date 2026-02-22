@@ -46,6 +46,8 @@ const STRIPE_API_BASE = "https://api.stripe.com/v1";
 // 許可オリジン（MEDIUM-04修正: Access-Control-Allow-Origin を制限）
 const ALLOWED_ORIGINS = [
   "https://ai-fudosan.bantex.jp",
+  "https://ai-shoken.bantex.jp",
+  "https://ai-shigyo.bantex.jp",
   "https://makoban.github.io",
 ];
 
@@ -147,7 +149,7 @@ async function handleGemini(request, env) {
   if (body.prompt && !body.contents) {
     geminiBody = {
       contents: [{ parts: [{ text: body.prompt }] }],
-      generationConfig: body.generationConfig || { temperature: 0.7, maxOutputTokens: 4096 },
+      generationConfig: body.generationConfig || { temperature: 0.7, maxOutputTokens: 8192 },
     };
   } else {
     const { model: _model, ...rest } = body;
@@ -405,9 +407,7 @@ async function handleCheckout(request, env) {
   if (!env.STRIPE_SECRET_KEY) {
     return errorResponse("STRIPE_SECRET_KEY が設定されていません", 500);
   }
-  if (!env.STRIPE_PRICE_ID) {
-    return errorResponse("STRIPE_PRICE_ID が設定されていません", 500);
-  }
+  // STRIPE_PRICE_ID は service によって切り替える（STRIPE_PRICE_ID_SHOKEN がない場合はデフォルト使用）
 
   let body;
   try {
@@ -416,7 +416,7 @@ async function handleCheckout(request, env) {
     return errorResponse("リクエストボディが不正な JSON です", 400);
   }
 
-  const { area, area_code, success_url, cancel_url } = body;
+  const { area, area_code, success_url, cancel_url, service } = body;
 
   if (!area || typeof area !== "string" || area.trim() === "") {
     return errorResponse("area フィールドは必須です", 400);
@@ -438,12 +438,26 @@ async function handleCheckout(request, env) {
   // Stripe API は application/x-www-form-urlencoded 形式
   const params = new URLSearchParams();
   params.set("mode", "payment");
-  params.set("line_items[0][price]", env.STRIPE_PRICE_ID);
+  // service パラメータで Price ID を切り替え（ai-shoken / ai-shigyo は別商品）
+  const serviceName = service || 'ai-fudosan';
+  let priceId;
+  if (serviceName === 'ai-shoken' && env.STRIPE_PRICE_ID_SHOKEN) {
+    priceId = env.STRIPE_PRICE_ID_SHOKEN;
+  } else if (serviceName === 'ai-shigyo' && env.STRIPE_PRICE_ID_SHIGYO) {
+    priceId = env.STRIPE_PRICE_ID_SHIGYO;
+  } else {
+    priceId = env.STRIPE_PRICE_ID;
+  }
+  if (!priceId) {
+    return errorResponse("STRIPE_PRICE_ID が設定されていません", 500);
+  }
+  params.set("line_items[0][price]", priceId);
   params.set("line_items[0][quantity]", "1");
   params.set("success_url", successUrl);
   params.set("cancel_url", cancelUrl);
   params.set("metadata[area]", area.trim());
   params.set("metadata[purchased_at]", timestamp);
+  params.set("metadata[service_name]", serviceName);
 
   // JWTから取得したユーザーID・エリアコードをメタデータに追加
   params.set("metadata[user_id]", user_id);
@@ -622,6 +636,7 @@ async function handleWebhook(request, env, ctx) {
     const area = session.metadata?.area ?? "";
     const areaCode = session.metadata?.area_code ?? "";
     const userId = session.metadata?.user_id ?? null;
+    const webhookServiceName = session.metadata?.service_name ?? "ai-fudosan";
     const paymentIntentId = session.payment_intent ?? null;
     const purchasedAt = session.metadata?.purchased_at
       ? parseInt(session.metadata.purchased_at, 10)
@@ -678,6 +693,7 @@ async function handleWebhook(request, env, ctx) {
               stripe_session_id: sessionId,
               stripe_payment_intent_id: paymentIntentId,
               amount: 300,
+              service_name: webhookServiceName,
             }, env, {
               // 重複を無視（同一 stripe_session_id は UNIQUE 制約）
               headers: { "Prefer": "return=minimal" },
@@ -798,6 +814,7 @@ async function handlePurchases(request, env) {
     }
 
     // Supabase DB にも保存（user_id がある場合）
+    const fallbackServiceName = stripeSession.metadata?.service_name ?? "ai-fudosan";
     if (userId && env.SUPABASE_URL && env.SUPABASE_SERVICE_KEY) {
       try {
         await supabaseRequest("/purchases", "POST", {
@@ -807,6 +824,7 @@ async function handlePurchases(request, env) {
           stripe_session_id: sessionId,
           stripe_payment_intent_id: paymentIntentId,
           amount: 300,
+          service_name: fallbackServiceName,
         }, env, {
           headers: { "Prefer": "return=minimal" },
           prefer: "return=minimal",
@@ -845,7 +863,7 @@ async function handleSaveAnalysisData(request, env) {
     return errorResponse("リクエストボディが不正です", 400);
   }
 
-  const { area_name, analysis_data } = body;
+  const { area_name, analysis_data, service_name } = body;
   if (!area_name || !analysis_data) {
     return errorResponse("area_name と analysis_data は必須です", 400);
   }
@@ -859,8 +877,9 @@ async function handleSaveAnalysisData(request, env) {
     return errorResponse("analysis_data が大きすぎます", 413);
   }
 
+  const svcName = service_name || "ai-fudosan";
   const result = await supabaseRequest(
-    `/purchases?user_id=eq.${user_id}&area_name=eq.${encodeURIComponent(area_name)}`,
+    `/purchases?user_id=eq.${user_id}&area_name=eq.${encodeURIComponent(area_name)}&service_name=eq.${svcName}`,
     "PATCH",
     { analysis_data },
     env,
@@ -884,9 +903,10 @@ async function handleGetAnalysisData(request, env) {
   const url = new URL(request.url);
   const areaName = url.searchParams.get("area_name");
   if (!areaName) return errorResponse("area_name は必須です", 400);
+  const svcName = url.searchParams.get("service_name") || "ai-fudosan";
 
   const result = await supabaseRequest(
-    `/purchases?user_id=eq.${user_id}&area_name=eq.${encodeURIComponent(areaName)}&select=analysis_data,purchased_at&order=purchased_at.desc&limit=1`,
+    `/purchases?user_id=eq.${user_id}&area_name=eq.${encodeURIComponent(areaName)}&service_name=eq.${svcName}&select=analysis_data,purchased_at&order=purchased_at.desc&limit=1`,
     "GET",
     null,
     env
@@ -922,9 +942,10 @@ async function handleCheckPurchase(request, env) {
   const url = new URL(request.url);
   const areaName = url.searchParams.get("area_name");
   if (!areaName) return errorResponse("area_name は必須です", 400);
+  const svcName = url.searchParams.get("service_name") || "ai-fudosan";
 
   const result = await supabaseRequest(
-    `/purchases?user_id=eq.${user_id}&area_name=eq.${encodeURIComponent(areaName)}&select=id&limit=1`,
+    `/purchases?user_id=eq.${user_id}&area_name=eq.${encodeURIComponent(areaName)}&service_name=eq.${svcName}&select=id&limit=1`,
     "GET",
     null,
     env
@@ -945,8 +966,11 @@ async function handlePurchaseHistory(request, env) {
   const { user_id } = await getUserFromJWT(request, env);
   if (!user_id) return errorResponse("認証が必要です", 401);
 
+  const url = new URL(request.url);
+  const svcName = url.searchParams.get("service_name") || "ai-fudosan";
+
   const result = await supabaseRequest(
-    `/purchases?user_id=eq.${user_id}&select=area_name,area_code,purchased_at,stripe_session_id&order=purchased_at.desc`,
+    `/purchases?user_id=eq.${user_id}&service_name=eq.${svcName}&select=area_name,area_code,purchased_at,stripe_session_id&order=purchased_at.desc`,
     "GET",
     null,
     env
