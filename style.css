@@ -1077,6 +1077,55 @@ body {
 .log-item.error { color: #ef4444; }
 
 /* ========================================
+   Cross Link Banner
+   ======================================== */
+.cross-link {
+  padding: 30px 0;
+}
+
+.cross-link__banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 18px 28px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(139, 92, 246, 0.12));
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 12px;
+  color: var(--text-primary);
+  text-decoration: none;
+  font-size: 16px;
+  transition: all 0.2s;
+}
+
+.cross-link__banner:hover {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.22), rgba(139, 92, 246, 0.22));
+  border-color: rgba(99, 102, 241, 0.5);
+  transform: translateY(-1px);
+}
+
+.cross-link__icon {
+  font-size: 24px;
+}
+
+.cross-link__text strong {
+  color: var(--accent);
+}
+
+.cross-link__arrow {
+  font-size: 20px;
+  color: var(--accent);
+}
+
+@media (max-width: 768px) {
+  .cross-link__banner {
+    font-size: 14px;
+    padding: 14px 20px;
+    gap: 8px;
+  }
+}
+
+/* ========================================
    Footer
    ======================================== */
 .footer {
