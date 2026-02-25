@@ -1,5 +1,5 @@
 // ========================================
-// AI不動産市場レポート v2.5
+// AI不動産市場レポート v2.6
 // エリア入力 → 政府統計 + AI分析 → プレビュー/課金
 // ========================================
 
@@ -1140,9 +1140,16 @@ async function verifyPurchase(sessionId) {
     var res = await fetch(WORKER_BASE + '/api/purchases?session_id=' + encodeURIComponent(sessionId), { headers: headers });
     var data = await res.json();
     if (data.purchased) {
+      // エリア名: Stripe metadata → sessionStorage復元 → フォールバック
+      var resolvedArea = data.area || (currentArea ? currentArea.fullLabel : '') || (analysisData ? analysisData.area.fullLabel || analysisData.area : '') || '';
       // 購入情報をローカルに保存
-      savePurchase(data.area, sessionId);
+      savePurchase(resolvedArea || '(エリア不明)', sessionId);
       isPurchased = true;
+
+      // DBのarea_nameが空だった場合、正しいエリア名でDBレコードを更新
+      if (!data.area && resolvedArea && currentUser) {
+        _updatePurchaseAreaName(sessionId, resolvedArea);
+      }
 
       // 分析データがあれば購入プロンプトを消して全データ表示
       if (analysisData && analysisData.area) {
@@ -1165,8 +1172,8 @@ async function verifyPurchase(sessionId) {
         var resultsHeader = document.querySelector('.results__header');
         if (resultsHeader) resultsHeader.after(receiptNote);
 
-        // 分析データをDBに保存
-        _saveAnalysisDataToDB(data.area, analysisData);
+        // 分析データをDBに保存（resolvedAreaを使用）
+        _saveAnalysisDataToDB(resolvedArea || analysisData.area.fullLabel, analysisData);
       }
 
       // sessionStorageクリア
@@ -1176,6 +1183,21 @@ async function verifyPurchase(sessionId) {
   } catch (e) {
     console.warn('Purchase verification failed:', e);
   }
+}
+
+// ---- DB: area_name 事後更新（Stripe metadata 欠落時の補完）----
+async function _updatePurchaseAreaName(stripeSessionId, areaName) {
+  if (!currentUser || !supabaseClient || !areaName) return;
+  try {
+    var session = await supabaseClient.auth.getSession();
+    var token = session.data.session ? session.data.session.access_token : null;
+    if (!token) return;
+    await fetch(WORKER_BASE + '/api/purchases/update-area', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ stripe_session_id: stripeSessionId, area_name: areaName })
+    });
+  } catch (e) { console.warn('Area name update failed:', e); }
 }
 
 // ---- DB Analysis Data ----
@@ -1271,13 +1293,19 @@ async function showHistoryModal() {
       } else {
         listEl.innerHTML = '';
         purchases.forEach(function(p) {
+          var displayName = p.area_name || '(エリア名未記録)';
           var btn = document.createElement('button');
           btn.className = 'area-select-btn';
           btn.innerHTML = '<span style="font-size:20px;">✅</span>' +
-            '<div><div style="font-weight:700;">' + escapeHtml(p.area_name) + '</div>' +
+            '<div><div style="font-weight:700;">' + escapeHtml(displayName) + '</div>' +
             '<div style="font-size:11px; color:var(--text-muted);">購入日: ' + new Date(p.purchased_at).toLocaleDateString('ja-JP') + '</div></div>';
           btn.addEventListener('click', async function() {
             document.getElementById('history-modal').classList.remove('active');
+            // area_nameが空の場合はDB読み出し不可→再分析を促す
+            if (!p.area_name) {
+              alert('エリア名が記録されていないため、レポートを表示できません。\nエリアを入力して再度分析を実行してください。\n（購入済みのため無料で全データが表示されます）');
+              return;
+            }
             // DBから分析データを読み出し（再分析不要）
             var dbData = await _loadAnalysisDataFromDB(p.area_name);
             if (dbData) {

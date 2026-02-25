@@ -11,8 +11,9 @@
  *   GET  /api/purchases           - 購入確認（session_id クエリパラメータ）
  *   GET  /api/purchases/check     - エリア購入済み判定
  *   GET  /api/purchases/history   - 購入履歴一覧
- *   POST /api/purchases/save-data - 分析データ保存
- *   GET  /api/purchases/data      - 保存済み分析データ取得
+ *   POST /api/purchases/save-data   - 分析データ保存
+ *   POST /api/purchases/update-area - area_name 事後補完
+ *   GET  /api/purchases/data        - 保存済み分析データ取得
  *
  * Required environment variables (set via wrangler secret put):
  *   GEMINI_API_KEY
@@ -894,6 +895,45 @@ async function handleSaveAnalysisData(request, env) {
 }
 
 /**
+ * area_name が空のまま保存された購入レコードを事後補完する。
+ * Stripe metadata が欠落した場合のリカバリ用。
+ */
+async function handleUpdatePurchaseArea(request, env) {
+  const { user_id } = await getUserFromJWT(request, env);
+  if (!user_id) return errorResponse("認証が必要です", 401);
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return errorResponse("リクエストボディが不正です", 400);
+  }
+
+  const { stripe_session_id, area_name } = body;
+  if (!stripe_session_id || !area_name) {
+    return errorResponse("stripe_session_id と area_name は必須です", 400);
+  }
+  if (typeof area_name !== 'string' || area_name.length > 100 || /[&=<>'"\\]/.test(area_name)) {
+    return errorResponse("area_name に使用できない文字が含まれています", 400);
+  }
+
+  // area_name が空のレコードのみ更新（上書き防止）
+  const result = await supabaseRequest(
+    `/purchases?user_id=eq.${user_id}&stripe_session_id=eq.${encodeURIComponent(stripe_session_id)}&area_name=eq.`,
+    "PATCH",
+    { area_name },
+    env,
+    { prefer: "return=representation" }
+  );
+
+  if (!result.ok) {
+    return errorResponse("area_name 更新エラー", 500);
+  }
+
+  return jsonResponse({ updated: true, rows: (result.data || []).length });
+}
+
+/**
  * 保存済みの分析データをDBから取得する。
  */
 async function handleGetAnalysisData(request, env) {
@@ -1052,6 +1092,11 @@ async function router(request, env, ctx) {
   // POST /api/purchases/save-data - 分析データをDBに保存
   if (path === "/api/purchases/save-data" && method === "POST") {
     return handleSaveAnalysisData(request, env);
+  }
+
+  // POST /api/purchases/update-area - area_name 事後補完
+  if (path === "/api/purchases/update-area" && method === "POST") {
+    return handleUpdatePurchaseArea(request, env);
   }
 
   // GET /api/purchases/data - 保存済みの分析データを取得
