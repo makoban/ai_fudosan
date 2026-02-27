@@ -1497,6 +1497,10 @@ body {
   body { font-size: 13px; line-height: 1.6; overflow-x: hidden; }
   .container { padding: 0 12px; }
 
+  /* Hide decorative <br> on mobile so text reflows naturally */
+  .hero__subtitle br,
+  .hero__catchcopy br { display: none; }
+
   /* Header - single line, shrink logo text */
   .header { padding: 10px 0; }
   .header__inner { flex-wrap: nowrap; gap: 6px; }
@@ -1514,24 +1518,32 @@ body {
 
   /* Hero */
   .hero { padding: 24px 0 16px; }
-  .hero__title { font-size: 24px; }
-  .hero__subtitle { font-size: 13px; }
+  .hero__badge { font-size: 11px; padding: 4px 12px; }
+  .hero__catchcopy { font-size: 13px; margin-bottom: 8px; }
+  .hero__title { font-size: 24px; margin-bottom: 10px; }
+  .hero__subtitle { font-size: 12px; line-height: 1.7; margin-bottom: 20px; }
   .hero__image { max-width: 200px; margin-top: 12px; }
+  .hero__character-wrap { display: none; }
+
+  /* Pricing info */
+  .pricing-info { flex-direction: column; gap: 6px; font-size: 11px; }
+  .pricing-info__free,
+  .pricing-info__paid { font-size: 11px; padding: 8px 12px; line-height: 1.5; }
 
   /* Search */
-  .search-card { padding: 20px; border-radius: 12px; }
-  .search__label { font-size: 14px; margin-bottom: 10px; }
-  .search__input { font-size: 15px; padding: 14px 14px 14px 40px; }
-  .search__autocomplete::before { left: 12px; font-size: 16px; }
-  .search__btn { padding: 14px 16px; font-size: 14px; width: 100%; }
-  .search__hint { font-size: 11px; }
+  .search-card { padding: 16px; border-radius: 12px; }
+  .search__label { font-size: 13px; margin-bottom: 8px; }
+  .search__input { font-size: 15px; padding: 12px 12px 12px 36px; }
+  .search__autocomplete::before { left: 10px; font-size: 14px; }
+  .search__btn { padding: 12px 14px; font-size: 14px; width: 100%; }
+  .search__hint { font-size: 10px; }
 
   /* Features */
-  .features { grid-template-columns: 1fr; gap: 8px; margin-top: 16px; }
-  .feature-item { padding: 12px; }
-  .feature-item__icon { font-size: 20px; }
-  .feature-item__title { font-size: 13px; }
-  .feature-item__desc { font-size: 11px; }
+  .features { grid-template-columns: 1fr; gap: 6px; margin-top: 12px; }
+  .feature-item { padding: 10px; }
+  .feature-item__icon { font-size: 18px; }
+  .feature-item__title { font-size: 12px; }
+  .feature-item__desc { font-size: 10px; }
 
   /* Progress */
   .progress__step { padding: 10px; gap: 10px; }
@@ -1540,49 +1552,49 @@ body {
   .progress__step-desc { font-size: 10px; }
 
   /* Results */
-  .results__header { margin-bottom: 16px; gap: 8px; }
-  .results__title { font-size: 18px; }
-  .results__actions { gap: 6px; }
-  .btn-pdf, .btn-rerun { padding: 8px 12px; font-size: 11px; }
+  .results__header { margin-bottom: 12px; gap: 6px; }
+  .results__title { font-size: 16px; }
+  .results__actions { gap: 4px; flex-wrap: wrap; }
+  .btn-pdf, .btn-excel, .btn-rerun { padding: 7px 10px; font-size: 10px; }
 
   /* Result Cards */
   .result-card { border-radius: 10px; }
-  .result-card__header { padding: 12px; gap: 10px; }
-  .result-card__icon { width: 36px; height: 36px; font-size: 16px; }
-  .result-card__title { font-size: 14px; }
-  .result-card__subtitle { font-size: 10px; }
-  .result-card__body { padding: 12px; font-size: 12px; }
+  .result-card__header { padding: 10px; gap: 8px; }
+  .result-card__icon { width: 32px; height: 32px; font-size: 14px; }
+  .result-card__title { font-size: 13px; }
+  .result-card__subtitle { font-size: 9px; }
+  .result-card__body { padding: 10px; font-size: 11px; }
 
   /* Data Table */
-  .data-table th, .data-table td { padding: 6px 8px; font-size: 11px; }
-  .data-table th { min-width: 70px; white-space: nowrap; }
+  .data-table th, .data-table td { padding: 5px 6px; font-size: 10px; }
+  .data-table th { min-width: 60px; white-space: nowrap; }
 
   /* Stat Grid */
-  .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
-  .stat-box { padding: 10px; border-radius: 8px; }
-  .stat-box__value { font-size: 18px; }
-  .stat-box__label { font-size: 9px; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .stat-box { padding: 8px; border-radius: 8px; }
+  .stat-box__value { font-size: 16px; }
+  .stat-box__label { font-size: 8px; }
 
   /* Summary Box */
-  .summary-box { padding: 12px; }
-  .summary-box__title { font-size: 12px; }
-  .summary-box__text { font-size: 11px; }
+  .summary-box { padding: 10px; }
+  .summary-box__title { font-size: 11px; }
+  .summary-box__text { font-size: 10px; line-height: 1.6; }
 
   /* Tags */
-  .tag { font-size: 10px; padding: 3px 8px; }
+  .tag { font-size: 9px; padding: 2px 6px; }
 
   /* Highlight */
-  .highlight { font-size: 14px; }
-  .highlight--green { font-size: 14px; }
-  .highlight--amber { font-size: 14px; }
+  .highlight { font-size: 13px; }
+  .highlight--green { font-size: 13px; }
+  .highlight--amber { font-size: 13px; }
 
   /* Progress Log */
-  .progress-log { font-size: 11px; max-height: 200px; }
+  .progress-log { font-size: 10px; max-height: 200px; }
 
   /* Modal */
-  .modal__content { margin: 16px; padding: 16px; border-radius: 12px; max-width: 100%; }
-  .modal__title { font-size: 16px; }
-  .modal__desc { font-size: 12px; }
+  .modal__content { margin: 12px; padding: 14px; border-radius: 12px; max-width: 100%; }
+  .modal__title { font-size: 15px; }
+  .modal__desc { font-size: 11px; }
 
   /* Charts & Grids */
   .chart-grid { grid-template-columns: 1fr; gap: 10px; }
@@ -1590,26 +1602,61 @@ body {
   .crawl-stats-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
 
   /* Footer */
-  .footer__text { font-size: 10px; }
+  .footer { padding: 24px 0; margin-top: 40px; }
+  .footer__text { font-size: 9px; }
+  .footer__links { flex-wrap: wrap; gap: 6px 12px; justify-content: center; font-size: 10px; }
+  .footer__links a { font-size: 10px; }
+
+  /* Purchase prompt */
+  .purchase-prompt__card { padding: 16px; }
+  .purchase-prompt__title { font-size: 16px; }
+  .purchase-prompt__desc { font-size: 11px; line-height: 1.5; }
+  .purchase-prompt__amount { font-size: 28px; }
+  .purchase-prompt__btn { padding: 12px 20px; font-size: 13px; }
+  .purchase-prompt__note { font-size: 10px; }
+
+  /* Sample section */
+  .sample__title { font-size: 18px; }
+  .sample__desc { font-size: 11px; }
+  .sample-cta p { font-size: 11px; }
+  .sample-report-scroll { max-height: 400px; }
+
+  /* Receipt section */
+  .receipt__cards { grid-template-columns: 1fr; }
+  .receipt__card { padding: 14px; }
+  .receipt__card h3 { font-size: 13px; }
+  .receipt__card p { font-size: 11px; }
+  .receipt__title { font-size: 16px; }
 }
 
 /* ========================================
    Extra Small (max-width: 480px)
    ======================================== */
 @media (max-width: 480px) {
+  .hero__catchcopy { font-size: 11px; }
   .hero__title { font-size: 20px; }
-  .hero__subtitle { font-size: 12px; }
-  .stat-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
-  .stat-box__value { font-size: 16px; }
-  .data-table th, .data-table td { padding: 4px 6px; font-size: 10px; }
-  .result-card__body { padding: 10px; font-size: 11px; }
-  .header__actions { gap: 4px; }
-  .header__logo-text { font-size: 11px; }
-  .auth-user { font-size: 9px; max-width: 70px; }
+  .hero__subtitle { font-size: 11px; }
+  .stat-grid { grid-template-columns: 1fr 1fr; gap: 4px; }
+  .stat-box__value { font-size: 14px; }
+  .stat-box__label { font-size: 7px; }
+  .data-table th, .data-table td { padding: 4px 5px; font-size: 9px; }
+  .result-card__body { padding: 8px; font-size: 10px; }
+  .result-card__title { font-size: 12px; }
+  .header__actions { gap: 3px; }
+  .header__logo-text { font-size: 10px; }
+  .auth-user { font-size: 9px; max-width: 60px; }
   .auth-login-btn { font-size: 9px; padding: 4px 8px; }
   .auth-logout-btn { font-size: 9px; padding: 3px 6px; }
   .header__history-btn { font-size: 9px; padding: 3px 6px; }
   .header__badge { font-size: 8px; padding: 2px 5px; }
+  .pricing-info__free,
+  .pricing-info__paid { font-size: 10px; }
+  .search-card { padding: 12px; }
+  .search__label { font-size: 12px; }
+  .search__btn { font-size: 13px; padding: 10px 12px; }
+  .feature-item__title { font-size: 11px; }
+  .feature-item__desc { font-size: 9px; }
+  .footer__links a { font-size: 9px; }
 }
 
 /* ========================================
@@ -2151,27 +2198,6 @@ body {
 /* ========================================
    ai_fudosan - Mobile Responsive additions
    ======================================== */
-@media (max-width: 768px) {
-  .pricing-info {
-    flex-direction: column;
-    gap: 8px;
-    align-items: center;
-  }
-
-  .purchase-prompt__card {
-    padding: 20px;
-  }
-
-  .purchase-prompt__amount {
-    font-size: 28px;
-  }
-
-  .purchase-prompt__btn {
-    padding: 14px 24px;
-    font-size: 14px;
-  }
-}
-
 /* ---- Auth UI ---- */
 #auth-area {
   display: flex;
@@ -2514,15 +2540,7 @@ body {
   text-decoration: underline;
 }
 
-/* ---- Sample/Receipt Mobile ---- */
-@media (max-width: 768px) {
-  .sample__title { font-size: 22px; }
-  .sample-report-scroll { max-height: 450px; }
-  .sample-report-preview { margin: 0 -8px 24px; border-radius: var(--radius-sm); }
-  .receipt__cards { grid-template-columns: 1fr; }
-  .receipt__card { padding: 16px; }
-  .receipt__title { font-size: 18px; }
-}
+/* Sample/Receipt Mobile → consolidated into main @media block above */
 
 .purchase-float-btn {
   position: fixed;
